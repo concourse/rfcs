@@ -1,0 +1,41 @@
+resources:
+- name: atc
+  type: git
+  source: {uri: https://github.com/concourse/atc}
+  space: {branch: master}
+
+- name: atc-gen
+  type: git
+  source: {uri: "https://github.com/concourse/atc"}
+
+jobs:
+- name: gen
+  plan:
+  - get: atc
+    trigger: true
+  - task: gen
+    file: atc/ci/gen.yml
+    config:
+      platform: ...
+      image_resource: ...
+      outputs:
+      - name: generated-repo
+        # has the generated code committed to the repo
+      - name: branch-space
+        # has a 'space' file with `{branch: gen-(some deterministic hash)}`
+  - put: atc-gen
+    # dynamically determines the space; resource idempotently creates it
+    space: {load: gen-branch/space}
+    params: {repository: gen-repo}
+
+- name: test
+  plan:
+  - get: atc
+    passed: [gen]
+    trigger: true
+  - get: atc-gen
+    passed: [gen]
+    spaces: [{branch: gen-*}]
+    trigger: true
+  - task: test
+    file: atc/ci/test.yml

@@ -1,17 +1,19 @@
 # Summary
 
-1. Tighten up the existing resource interface to better represent its intended
-   use case: versioned objects, changing over time, with an external source of
-   truth.
+Introduces a new resource interface with the following goals:
+
+1. Support for spaces (concourse/concourse#1707).
+
+1. Marking versions as deleted.
+
+1. Tightening up loopholes in the API to ensure that resources are pointing at
+   an external source of truth and cannot be "partially implemented".
 
 1. Introduce versioning to the resource interface, so that we can maintain
    backwards-compatibility.
 
-1. Introduce new interfaces to support today's use cases that are currently
-   being shoehorned into the resource interface.
-
-1. Provide an answer for how spaces are discovered and used, in light of
-   concourse/concourse#1707.
+1. Establish a pattern for notification-style resources like Slack, GitHub
+   commit/PR status, etc.
 
 
 # Motivation
@@ -28,10 +30,35 @@ We have a need in concourse/concourse#1707 to discover change over *space*, not
 have
 
 
+## New Implications
 
-* External un-versioned resources that have a "current state" (i.e. a deployment, a set of git branches, a set of git PRs)
-* Push-only things with no state, like notifications
-* Un-versioned blobs that can be passed around and deleted
+Here are a few use cases that resources were sometimes used for inappropriately:
+
+1. Resources that really only have a "current state", such as deployments. This
+  is still "change over time", but the difference is that old versions become
+  invalid as soon as there's a new one.
+
+1. Pushing un-versioned artifacts through a pipeline, such that the version
+  history for the resource becomes nonlinear (the "latest" version has nothing
+  to do with the versions prior). This is a cardinal sin.
+
+The new interface improves the story around these two use cases.
+
+The first case is resolved by having versions be deletable; we can now
+represent that previous states of an external dependency are no longer
+available.
+
+The second use case can be resolved by using a new space to represent nonlinear
+versions.
+
+
+## xx hooks use case
+
+- git: commit status
+- github pr: pr status
+
+- pool?: validate lock still available on start? configurable to release on sad path? (maybe from get/put params?)
+- slack notification: `put` to start msg, hooks reply to it with result? (kind of an abuse tho)
 
 # Proposal
 
@@ -48,29 +75,27 @@ type alias Metadata = List (String, String)
 -- Versioned Dependencies (Git repo)
 type alias Version = Dict String String
 
-check  : Config -> List Version
-get    : Config -> Version -> Bits
-put    : Config -> Bits -> Set Version
-delete : Config -> Bits -> Set Version
-
--- Spaces (BOSH deployments, Git branches, Git PRs, Semver trees)
 type alias Space = Dict String String
 
-check  : Config -> Set Space
-get    : Config -> Space -> Bits
-put    : Config -> Bits -> Set Space
-delete : Config -> Bits -> Set Space
+discover : Config -> Set Space
+check    : Config -> Space -> Maybe Version -> List Version
+get      : Config -> Space -> Version -> Bits
+put      : Config -> Space -> Bits -> Set Version
+destroy  : Config -> Space -> Bits -> Set Version
 
--- Notifications (slack, email)
+notify : Config -> Notification -> ()
+
+-- Optional: runs whenever build status changes while using resource as input
+-- notify : Config -> Space -> Version -> Status -> ()
+
 type alias BuildMetadata =
-  { buildStatus : String
-  , buildNumber : Int
-  , jobName : String
+  { teamName : String
   , pipelineName : String
-  , teamName : String
+  , jobName : String
+  , buildName : String
+  , buildID : Int
+  , status : String
   }
-
-notify : Config -> BuildMetadata -> ()
 ```
 
 
@@ -79,42 +104,17 @@ notify : Config -> BuildMetadata -> ()
 - Pull Requests
 - BOSH deploys
 - Feature branches
-- Arbitrary branches
+- Generated branches
 - IaaSes
+- Pool resource?
 
 
 ## Pull Requests
 
-```yaml
-space_types:
-- name: github-pr
-  type: docker-image
-  source: {repository: concourse/github-pr-space-type}
-
-spaces:
-- name: atc-prs
-  type: github-pr
-  source: {repository: concourse/atc}
-
-resources:
-- name: atc-pr
-  type: git
-  source: {uri: "https://github.com/concourse/atc"}
-  spaces: atc-prs
-
-jobs:
-- name: atc-pr-unit
-  plan:
-  - get: atc-pr
-    trigger: true
-    spaces: all
-  - task: unit
-    file: atc/ci/pr.yml
-```
-
 !! stateful spaces? hooks on build start/finish with state available
 !! this could be used to reflect PR status, send slack alerts, track pool entries
-
+!! these hooks might not just be notifications - it could be important (ie release lock on abort)
+!! need a way for `put` to create a new space
 
 
 ### Scheduling

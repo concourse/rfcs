@@ -1,0 +1,36 @@
+resource_types:
+- name: github-status
+  type: docker-image
+  source: {repository: concourse/github-status-resource}
+
+resources:
+- name: atc
+  type: git
+  source:
+    uri: https://github.com/concourse/atc
+
+- name: atc-status
+  type: github-status
+  notify:
+  - on: used_in_build
+    follow: atc
+  source:
+    repository: concourse/atc
+    access_token: ((token))
+
+jobs:
+- name: atc-pr-unit
+  plan:
+  - get: atc-pr
+    trigger: true
+    spaces: all
+  - task: unit
+    file: atc/ci/pr.yml
+
+# github-status /info:
+{
+  "version": "2.0",
+  "notifier": {
+    "used_in_build": "/opt/resource/notify"
+  }
+}

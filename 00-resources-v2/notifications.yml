@@ -1,0 +1,37 @@
+resource_types:
+- name: slack-notifier
+  type: docker-image
+  source: {repository: concourse/slack-notifier-resource}
+
+resources:
+- name: atc
+  type: git
+  source:
+    uri: https://github.com/concourse/atc
+
+- name: slack-alert
+  type: slack-notifier
+  source:
+    url: https://hooks.slack.com/services/XXXX
+  notify:
+  - on: build_failed
+    params:
+      template: |
+        Oh no! <{{.ExternalURL}}/builds/{{.BuildID}}|{{.BuildName}}> failed. :(
+
+jobs:
+- name: atc-pr-unit
+  plan:
+  - get: atc-pr
+    trigger: true
+    spaces: all
+  - task: unit
+    file: atc/ci/pr.yml
+
+# github-status /info:
+{
+  "version": "2.0",
+  "notifier": {
+    "build_failed": "/opt/resource/notify"
+  }
+}
