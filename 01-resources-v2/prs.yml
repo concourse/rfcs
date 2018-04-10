@@ -9,10 +9,9 @@ resources:
   source:
     repository: concourse/atc
     access_token: ((token))
-
-notifiers:
-- resource: atc-pr
-  follow: atc-pr
+  notify:
+  - on: build_started
+  - on: build_finished
 
 jobs:
 - name: atc-pr-unit
@@ -22,16 +21,3 @@ jobs:
     spaces: all
   - task: unit
     file: atc/ci/pr.yml
-
-# github-pr /info:
-{
-  "version": "2.0",
-  "artifacts": {
-    "check": "/opt/resource/check",
-    "in": "/opt/resource/in",
-    "out": "/opt/resource/out"
-  },
-  "notifier": {
-    "used_in_build": "/opt/resource/notify"
-  }
-}

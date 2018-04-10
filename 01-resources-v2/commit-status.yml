@@ -8,12 +8,14 @@ resources:
   type: git
   source:
     uri: https://github.com/concourse/atc
+  notify:
+  - on: build_started
+    using: atc-status # invoke atc-status notifier with 'self' set to this resource
+  - on: build_finished
+    using: atc-status # invoke atc-status notifier with 'self' set to this resource
 
 - name: atc-status
   type: github-status
-  notify:
-  - on: used_in_build
-    follow: atc
   source:
     repository: concourse/atc
     access_token: ((token))
@@ -26,11 +28,3 @@ jobs:
     spaces: all
   - task: unit
     file: atc/ci/pr.yml
-
-# github-status /info:
-{
-  "version": "2.0",
-  "notifier": {
-    "used_in_build": "/opt/resource/notify"
-  }
-}

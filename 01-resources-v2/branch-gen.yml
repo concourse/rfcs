@@ -21,12 +21,10 @@ jobs:
       outputs:
       - name: generated-repo
         # has the generated code committed to the repo
-      - name: branch-space
-        # has a 'space' file with `{branch: gen-(some deterministic hash)}`
+      - name: branch-name
+        # has a 'name' file with `gen-(some deterministic hash)`
   - put: atc-gen
-    # dynamically determines the space; resource idempotently creates it
-    space: {load: gen-branch/space}
-    params: {repository: gen-repo}
+    params: {branch_name: branch-name/name, repository: gen-repo}
 
 - name: test
   plan:

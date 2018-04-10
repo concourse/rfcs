@@ -14,10 +14,13 @@ resources:
   source:
     url: https://hooks.slack.com/services/XXXX
   notify:
-  - on: build_failed
+  - on: build_finished
     params:
-      template: |
-        Oh no! <{{.ExternalURL}}/builds/{{.BuildID}}|{{.BuildName}}> failed. :(
+      template:
+        succeeded: |
+          Yay! <{{.ExternalURL}}/builds/{{.BuildID}}|{{.BuildName}}> succeeded. :)
+        failed: |
+          Oh no! <{{.ExternalURL}}/builds/{{.BuildID}}|{{.BuildName}}> failed. :(
 
 jobs:
 - name: atc-pr-unit
@@ -27,11 +30,3 @@ jobs:
     spaces: all
   - task: unit
     file: atc/ci/pr.yml
-
-# github-status /info:
-{
-  "version": "2.0",
-  "notifier": {
-    "build_failed": "/opt/resource/notify"
-  }
-}
