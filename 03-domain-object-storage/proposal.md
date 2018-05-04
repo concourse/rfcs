@@ -17,6 +17,7 @@ Factories are usually objects that are concerned with the construction of comple
 In our case the `factory` Go files are responsible for interacting with the repository to perform CRUD operations.
 ## Idiomatic Go
 In order to make our code accessible it is in our best interest to follow practices in the organization of our code that are considered native to the Go community.
+
 _Some idiomatic Go rules in no particular order;_
 * Interfaces should be defined by the consumers of the interface
 * Interfaces should be as small and generic as possible
