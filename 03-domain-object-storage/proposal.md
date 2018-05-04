@@ -45,4 +45,4 @@ As for the other repository objects that are now named after their domain model 
 # New implications and caveats
 * If there are any differences between the `ATC` and `DB` domain objects we can change the `ATC` domain objects to contain the appropriate information.
 * Where there are multiple consumers of an interface the right location of an interface may take some effort to find. The core Go language has several examples of this.
-* A spike with a single domain object will be done to explore the side effects of the unification of `DB` and `ATC` domain objects to fully appreciate the side effects of this change.
+* A spike with a single domain object will be done to explore the side effects of the unification of `DB` and `ATC` domain objects to fully appreciate challenges of the proposed changes.
