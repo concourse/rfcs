@@ -130,7 +130,7 @@ TODO:
 
 ## Changes to Versioned Artifact resources
 
-* Add a `spaces` actopm, which is used to discover spaces.
+* Add a `spaces` action, which is used to discover spaces.
 
   It's not a verb, partly because most verbs would be ambiguous with `check`,
   and partly because the API is practically stateless; it just returns whatever

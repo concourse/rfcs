@@ -24,7 +24,7 @@ jobs:
       - name: branch-name
         # has a 'name' file with `gen-(some deterministic hash)`
   - put: atc-gen
-    params: {branch_name: branch-name/name, repository: gen-repo}
+    params: {branch_name: branch-name/name, repository: generated-repo}
 
 - name: test
   plan:
