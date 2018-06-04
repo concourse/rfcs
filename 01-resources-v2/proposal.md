@@ -310,6 +310,7 @@ versions. It'll return multiple spaces and versions created/deleted for them.
 </p>
 </details>
 
+
 # New Implications
 
 Here are a few use cases that resources were sometimes used for inappropriately:

@@ -84,13 +84,13 @@ when "check"
 when "get"
   $request = {
     config: {uri: "https://github.com/vito/booklit"},
-    space: {branch: "master"},
+    space: "master",
     version: {ref: "f828f2758256b0e93dc3c101f75604efe92ca07e"}
   }
 
   git =
     Git.clone($request[:config][:uri], "dot", # TODO: irl this would be '.'
-              branch: $request[:space][:branch],
+              branch: $request[:space],
               recursive: true)
 
   git.checkout($request[:version][:ref])
