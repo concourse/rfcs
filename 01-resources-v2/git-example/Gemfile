@@ -1,0 +1,4 @@
+source :rubygems
+
+gem 'git'
+gem 'pry'

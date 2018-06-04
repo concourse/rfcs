@@ -35,8 +35,8 @@ would normally just be the working directory of the script.
 -- arbitrary configuration
 type alias Config = Dict String Json.Value
 
--- identifier for space, i.e. {"branch":"foo"}
-type alias Space = Dict String String
+-- identifier for space, i.e. 'foo' or '1.2'
+type alias Space = String
 
 -- identifier for version, i.e. {"version":"1.2"}
 type alias Version = Dict String String
@@ -51,11 +51,9 @@ type alias Bits = ()
 ## Versioned Artifacts interface
 
 ```elm
-spaces  : Config -> Set Space
-check   : Config -> Space -> Maybe Version -> List (Version, Metadata)
+check   : Config -> Dict Space Version -> Dict Space (List (Version, Metadata))
 get     : Config -> Space -> Version -> Bits
-put     : Config -> Bits -> (Space, Set Version)
-destroy : Config -> Bits -> Dict Space (Set Version)
+put     : Config -> Bits -> Dict Space { created : Set Version, deleted : Set Version }
 ```
 
 ## Notifications interface
@@ -91,6 +89,16 @@ type alias BuildInput =
 
 
 # Examples
+
+## Resource Implementations
+
+I've started implementing a new `git` resource alongside this
+document. See
+[`git-example/`](https://github.com/vito/rfcs/tree/resources-v2/01-resources-v2/git-example).
+I've left `TODO`s for parts that need more thinking or discussion. Please
+leave comments!
+
+## Pipeline Usage
 
 TODO:
 
@@ -130,58 +138,60 @@ TODO:
 
 ## Changes to Versioned Artifact resources
 
-* Add a `spaces` action, which is used to discover spaces.
+* Change `check` to run against all spaces. It will be given a mapping of each
+  space to its current latest version, and return the set of all spaces, along
+  with any new versions in each space.
 
-  It's not a verb, partly because most verbs would be ambiguous with `check`,
-  and partly because the API is practically stateless; it just returns whatever
-  spaces there are.
+  This is all done as one batch call so that resources can decide how to
+  efficiently perform the check. It also keeps the container overhead down to
+  one per resource, rather than one per space.
 
-* Add a `destroy` action, which looks like `put` (can be given files and params
-  to determine what to destroy) but returns the set of versions that it
-  deleted.
+* Change `put` to emit a set of created versions for each space, rather than
+  just one.
 
-  This is to support bulk deletes, e.g. to garbage collect intermediate
-  artifacts after a final build is shipped.
-
-* Change `check` and `get` to always run against a particular space, given by
-  the request payload.
-
-* Change `check` to include metadata for each version. Change `get` and `put` to
-  no longer return it.
-
-  This way metadata is always immediately available, and only comes from one
-  place.
-
-  The original thought was that metadata collection may be expensive, but so far
-  we haven't seen that to be the case.
-
-* Change `get` script to no longer return a version, since it's always given one
-  now. As a result, `get` no longer has a response; it just succeeds or fails.
-
-* Change `get` and `put` to run with the bits as their working directory, rather
-  than taking the path as an argument. This was something people would trip up
-  on when implementing a resource.
-
-* Change `put` to emit a list of versions, rather than just one.
-
-  TODO: it's undecided whether `put` should be given a single space, return a
-  single space, or return many spaces + versions.
-
-  Technically the `git` resource may push many commits, so this is necessary to
-  track them all as outputs of a build. This could also support batch creation.
+  Technically the `git` resource may push many commits, so returning more than
+  one version is necessary to track them all as outputs of a build. This could
+  also support batch creation.
 
   To ensure `check` is the source of truth for ordering, the versions returned
   by `put` are not order dependent. A `check` will be performed to discover
   them in the correct order, and then each version will be saved as an output
   of the build. The latest version of the set will then be fetched.
 
+* Change `put` to additionally return a set of *deleted* versions.
+
+  There has long been a call for a batch `delete` or `destroy` action. Adding
+  this to `put` alongside the set of created versions allows `put` to become a
+  general idempotent side-effect performer, rather than implying that each
+  resource must support a separate `delete` action.
+
+* Change `get` to always run against a particular space, given by
+  the request payload.
+
+* Change `check` to include metadata for each version. Change `get` and `put`
+  to no longer return it.
+
+  This way metadata is always immediately available, and only comes from one
+  place.
+
+  The original thought was that metadata collection may be expensive, but so
+  far we haven't seen that to be the case.
+
+* Change `get` script to no longer return a version, since it's always given
+  one now. As a result, `get` no longer has a response; it just succeeds or
+  fails.
+
+* Change `get` and `put` to run with the bits as their working directory,
+  rather than taking the path as an argument. This was something people would
+  trip up on when implementing a resource.
+
 * Change `put` to write its JSON response to a specified file, rather than
   `stdout`, so that we don't have to be attached to process its response.
 
   This is one of the few ways a build can error after the ATC reattaches
-  (`unexpected end of JSON`). With it written to a file, we can just try to read
-  the file when we re-attach after seeing that the process exited. This also
-  frees up stdout/stderr for normal logging, which has been an occasional
+  (`unexpected end of JSON`). With it written to a file, we can just try to
+  read the file when we re-attach after seeing that the process exited. This
+  also frees up stdout/stderr for normal logging, which has been an occasional
   pitfall during resource development/debugging.
 
 
@@ -216,44 +226,6 @@ Terminology is now even more confusing. "Resource type" could mean either the
 
 # Open Questions
 
-## Can we reduce the `check` overhead?
-
-With spaces there will be more `check`s than ever. Right now, there's one
-container per recurring `check`. Can we reduce the container overhead here by
-requiring that resource `check`s be side-effect free and able to run in parallel?
-
-There may be substantial security implications for this.
-
-
-## Is `destroy` general enough to be a part of the interface?
-
-It may be the case that most resources cannot easily support `destroy`. One
-example is the `git` resource. It doesn't really make sense to `destroy` a
-commit. Even if it did (`push -f`?), it's a kind of weird workflow to support
-out of the box.
-
-Could we instead just have `put` and ensure that we `check` in such a way that
-deleted versions are automatically noticed? What would the overhead of this be?
-
-
-## Should `put` be given a space or return the space?
-
-The verb `PUT` in HTTP implies an idempotent action against a given resource. So
-it's intuitive that the `put` verb here would do the same.
-
-However, many of today's usage of `put` would be against a dynamically
-determined space. For example, most semver workflows involve `put`ing with the
-version determined by a file (often coming from the `semver` resource). So the
-space isn't known statically at pipeline configuration time.
-
-What's more, the resulting space for a semver push would only be `MAJOR.MINOR`,
-excluding the final patch segment. This is annoying to have to explicitly
-configure in your build.
-
-If we instead have `put` return both the space and the versions, this would be a
-lot simpler.
-
-
 ## Should a notifier resource be able to "observe" another resource?
 
 This would allow e.g. a generic `git` resource and specific
@@ -264,6 +236,79 @@ The downside here is that it would be introducing cross-resource-type interface
 contracts. Resource A would have to understand resource B's versions/spaces.
 This gets more possible with schema verification but still feels risky.
 
+
+# Answered(?) Questions
+
+<details><summary>Can we reduce the `check` overhead?</summary>
+
+<p>
+~~With spaces there will be more `check`s than ever. Right now, there's one
+container per recurring `check`. Can we reduce the container overhead here by
+requiring that resource `check`s be side-effect free and able to run in
+parallel?~~
+</p>
+
+<p>
+~~There may be substantial security implications for this.~~
+</p>
+
+<p>
+This is now done as one big `check` across all spaces, run in a single
+container. Resources can choose how to perform this efficiently and safely.
+This may mean GraphQL requests or just iterating over local shared state in
+series. Even in the worst-case, where no parallelism is involved, it will at
+least consume only one container.
+</p>
+</details>
+
+<details><summary>Is `destroy` general enough to be a part of the interface?</summary>
+
+<p>
+~~It may be the case that most resources cannot easily support `destroy`. One
+example is the `git` resource. It doesn't really make sense to `destroy` a
+commit. Even if it did (`push -f`?), it's a kind of weird workflow to support
+out of the box.~~
+</p>
+
+<p>
+~~Could we instead just have `put` and ensure that we `check` in such a way that
+deleted versions are automatically noticed? What would the overhead of this
+be?~~ This only works if the versions are "chained", as with the `git` case.
+</p>
+
+<p>
+Decided against introducing `destroy` in favor of having `put` return two sets
+for each space: versions created and versions deleted. This generalizes `put`
+into an idempotent versioned artifact side effect performer.
+</p>
+</details>
+
+<details><summary>Should `put` be given a space or return the space?</summary>
+
+<p>
+~~The verb `PUT` in HTTP implies an idempotent action against a given resource. So
+it's intuitive that the `put` verb here would do the same.~~
+</p>
+<p>
+~~However, many of today's usage of `put` would be against a dynamically
+determined space. For example, most semver workflows involve `put`ing with the
+version determined by a file (often coming from the `semver` resource). So the
+space isn't known statically at pipeline configuration time.~~
+</p>
+<p>
+~~What's more, the resulting space for a semver push would only be `MAJOR.MINOR`,
+excluding the final patch segment. This is annoying to have to explicitly
+configure in your build.~~
+</p>
+<p>
+~~If we instead have `put` return both the space and the versions, this would be a
+lot simpler.~~
+</p>
+<p>
+Answered this at the same time as having `put` return a set of deleted
+versions. It'll return multiple spaces and versions created/deleted for them.
+</p>
+</details>
 
 # New Implications
 

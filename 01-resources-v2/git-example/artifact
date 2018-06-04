@@ -1,0 +1,104 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "git"
+
+# $request = JSON.parse(STDIN.read, symbolize_names: true)
+
+def commit_versions(log)
+  log.collect do |c|
+    {
+      version: {ref: c.sha},
+      metadata: [
+        {name: "author", value: c.author.name},
+        {name: "author_date", value: c.author_date},
+        {name: "commit", value: c.sha},
+        {name: "committer", value: c.committer.name},
+        {name: "committer_date", value: c.committer_date},
+        {name: "message", value: c.message}
+      ]
+    }
+  end
+end
+
+case ARGV[0]
+when "check"
+  $request = {
+    config: {uri: "https://github.com/vito/booklit"},
+    from: {master: {ref: "40bc6986197e411471d306bb8eb3a21c5b5f9d26"}}
+  }
+
+  git =
+    if Dir.exists?("check-repo")
+      Git.open("check-repo").tap(&:fetch)
+    else
+      Git.clone($request[:config][:uri], "check-repo")
+    end
+
+  spaces = []
+  git.branches.local.each do |b|
+    # skip "default branch" entry
+    next if b.name =~ /HEAD ->/
+
+    b.checkout
+
+    paths = $request[:config][:paths] || ["."]
+    paths += ($request[:config][:ignore_paths] || []).collect { |p| ":!" + p }
+
+    log = git.log(nil).path(paths)
+
+    # TODO: this will get *all* commits and load it into memory, which is
+    # probably a bad idea. the linux repo for example has 710k+ commits.
+    #
+    # should this be paginated? or should it stream each version back to the
+    # caller somehow so everything doesn't have to be sucked into memory?
+    #
+    # TODO: when checking from a given version, should the given version be
+    # returned? this was done in the original API so that you could run
+    # `check-resource -f <version>`, but in this new world where we just always
+    # collect all versions, that won't be necessary. in fact, `check-resource
+    # -f <version>` would need to be given a space that it's checking against.
+    commits =
+      if version = $request[:from][b.name]
+        begin
+          commit_versions(log.between(version[:ref]))
+        rescue
+          # bad ref; emit all versions
+          commit_versions(log)
+        end
+      else
+        commit_versions(log)
+      end
+
+    $stderr.puts "#{b.name}: #{commits.length} commits"
+
+    spaces << {
+      space: {branch: b.name},
+      versions: commits
+    }
+  end
+
+  response = JSON.dump(spaces)
+  puts response
+  puts response.size
+when "get"
+  $request = {
+    config: {uri: "https://github.com/vito/booklit"},
+    space: {branch: "master"},
+    version: {ref: "f828f2758256b0e93dc3c101f75604efe92ca07e"}
+  }
+
+  git =
+    Git.clone($request[:config][:uri], "dot", # TODO: irl this would be '.'
+              branch: $request[:space][:branch],
+              recursive: true)
+
+  git.checkout($request[:version][:ref])
+
+  # TODO: draw the rest of the owl
+  #
+  # most of this is uninteresting.
+
+when "put"
+  puts "putting"
+end
