@@ -103,21 +103,19 @@ of each interface should be honed. For more on this, see [Concourse issue #2037
 ](https://github.com/concourse/concourse/issues/2037#issuecomment-366342507).
 
 
-## Changes to Worker Registration
-
-TODO
-
 ## Changes to Garbage Collection
 
-TODO
-
+Now that Concourse's worker GC model has changed, there's little which will need to 
+change from the ATC's standpoint for GC. On the Worker side, the Kubernetes Runtime 
+(maybe a separate 'worker' deployment) will need to handle the reporting of K8s 
+resources on the cluster and the deletion of resources which are no longer marked 
+for usage by the pipelines, resources, and jobs.
 
 # Open Questions
 
 There are a lot of open questions to answer around how Concourse should use a
-K8s Cluster as an "Orchestrator"; How to schedule Workloads, which types of
-Workloads to use for each
- manage K8s Volumes,
+K8s Cluster as an "Orchestrator"; How to schedule K8s Workloads, which types of
+K8s Workloads to use for each, and how to manage K8s Volumes.
 
 ## Volume Management
 
