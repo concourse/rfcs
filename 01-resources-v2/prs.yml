@@ -9,9 +9,6 @@ resources:
   source:
     repository: concourse/atc
     access_token: ((token))
-  notify:
-  - on: build_started
-  - on: build_finished
 
 jobs:
 - name: atc-pr-unit
@@ -21,3 +18,5 @@ jobs:
     spaces: all
   - task: unit
     file: atc/ci/pr.yml
+
+  # TODO: this currently doesn't do any commit status indication

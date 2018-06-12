@@ -11,9 +11,6 @@ Introduces a new resource interface with the following goals:
   loopholes in today's resource API to ensure that resources are pointing at an
   external source of truth and cannot be partially implemented or hacky.
 
-* Introduce a "notifier" interface. This is to replace a whole class of resource
-  types that will not be able to fit in to an "artifact" interface.
-
 * Extend the versioned artifacts interface to support deletion of versions,
   either by an explicit `delete` call or by somehow noticing that versions have
   disappeared.
@@ -56,38 +53,6 @@ get     : Config -> Space -> Version -> Bits
 put     : Config -> Bits -> Dict Space { created : Set Version, deleted : Set Version }
 ```
 
-## Notifications interface
-
-```elm
-notify : Config -> Notification -> ()
-
-type Notification
-  = BuildStarted
-      { build : BuildMetadata
-      , self : Maybe BuildInput
-      }
-  | BuildFinished
-      { build : BuildMetadata
-      , status : Status
-      , self : Maybe BuildInput
-      }
-
-type alias BuildMetadata =
-  { teamName : String
-  , pipelineName : String
-  , jobName : String
-  , buildName : String
-  , buildID : Int
-  , status : String
-  }
-
-type alias BuildInput =
-  { space : Space
-  , version : Version
-  }
-```
-
-
 # Examples
 
 ## Resource Implementations
@@ -116,27 +81,29 @@ TODO:
 
 ## Overarching Changes
 
-* Add a `info` script which prints the resource's API version, e.g.
-  `{"version":"2.0"}`. This will start at `2.0`. If `/info` does not exist we'll
-  execute today's resource interface behavior.
+* Add an `info` script which returns a JSON object indicating the supported
+  interfaces, their protocol versions, and any other interface-specific
+  meta-configuration (for example, which commands to execute for the
+  interface's hooks).
 
-* Rather than running `/opt/resource/X`, discover the supported resource APIs by
-  invoking `info`. This allows us to be more flexible in what kinds of resources
-  we can support (versioned artifacts, notifications, ???), and where the
-  scripts may live (`/opt/resource` is very Linux specific).
+* The first supported interface will be called `artifacts`, and its version
+  will start at `2.0` as it's really the next iteration of the existing
+  "resources" concept, but with a more specific name.
 
-* Today's resource interface (`/in`, `/out`, `/check`) becomes more specifically
-  a "versioned artifacts" or just "artifacts" resource interface.
+* There are no more hardcoded paths (`/opt/resource/X`) - instead there's the
+  single `info` entrypoint, which is run in the container's working directory.
+  This is more platform-agnostic.
 
 * Introduction of some sort of schema validation for resource configuration.
 
-* Remove the distinction between `source` and `params`; resources will receive a
-  single `config`. The distinction will remain in the pipeline. This makes it
-  easier to implement a resource without planning ahead for interesting dynamic
-  vs. static usage patterns, and will get more powerful with #684.
-
 
 ## Changes to Versioned Artifact resources
+
+* Remove the distinction between `source` and `params`; resources will receive
+  a single `config`. The distinction will remain in the pipeline. This makes it
+  easier to implement a resource without planning ahead for interesting dynamic
+  vs. static usage patterns, and this will become more powerful with
+  concourse/concourse#684.
 
 * Change `check` to run against all spaces. It will be given a mapping of each
   space to its current latest version, and return the set of all spaces, along
@@ -193,48 +160,6 @@ TODO:
   read the file when we re-attach after seeing that the process exited. This
   also frees up stdout/stderr for normal logging, which has been an occasional
   pitfall during resource development/debugging.
-
-
-## Introduction of "notifier" resource interface
-
-A resource may now implement a "notifier" interface. Notifications must be
-explicitly enabled in the pipeline. This is so that a resource type can't
-suddenly decide to include a notifier and start doing surprising things.
-
-A notifier has a single hook, `notify`, and receives some sort of JSON payload
-describing the event. The event is purely for side-effects and has no
-implications for pipeline semantics.
-
-If a notification fails to send, the build shall error. To be honest, I haven't
-thought about this much yet, but I think it's better to be conservative.
-
-A resource type may implement both "artifacts" and "notifier" interfaces. If a
-resource implements both, it will be given information about its occurrence in
-the build (space and version). This will be crucial for e.g. reporting the
-status of a pull request or commit back to GitHub.
-
-Add support for a "notifier" resource type. They have one hook, `notify`,
-which is invoked with various types of notifications
-(`build_started`, `build_finished`, as the poster children).
-
-
-# Caveats
-
-Terminology is now even more confusing. "Resource type" could mean either the
-"git" vs. "s3" or "notifier" vs. "artifact".
-
-
-# Open Questions
-
-## Should a notifier resource be able to "observe" another resource?
-
-This would allow e.g. a generic `git` resource and specific
-`github-commit-status` resource type rather than having to bake them all
-together.
-
-The downside here is that it would be introducing cross-resource-type interface
-contracts. Resource A would have to understand resource B's versions/spaces.
-This gets more possible with schema verification but still feels risky.
 
 
 # Answered(?) Questions
@@ -318,14 +243,31 @@ Here are a few use cases that resources were sometimes used for inappropriately:
 ## Single-state resources
 
 Resources that really only have a "current state", such as deployments. This is
-still "change over time", but the difference is that old versions become invalid
-as soon as there's a new one.
-
-These can now be done by always marking the old versions as "deleted".
-
+still "change over time", but the difference is that old versions become
+invalid as soon as there's a new one. This can now be made more clear by
+marking the old versions as "deleted", either proactively via `put` or by
+`check` discovering the new version.
 
 ## Non-linearly versioned artifact storage
 
 This can be done by representing each non-linear version in a separate space.
 For example, generated code could be pushed to a generated (but deterministic)
 branch name, and that space could then be passed along.
+
+
+# Implementation Notes
+
+## Performance Implications
+
+Now that we're going to be collecting all versions of every resource, we should
+be careful not to be scanning the entire table all the time, and even make an
+effort to share data when possible. For example, we may want to associate
+collected versions to a global resource config object, rather than saving them
+all per-pipeline-resource.
+
+Here are some optimizations we probably want to make:
+
+* `(db.Pipeline).GetLatestVersionedResource` is called every minute and scans
+  the table to find the latest version of a given resource. We should reduce
+  this to a simple join column from the resource to the latest version,
+  maintained every time we save new versions.

@@ -25,7 +25,10 @@ case ARGV[0]
 when "check"
   $request = {
     config: {uri: "https://github.com/vito/booklit"},
-    from: {master: {ref: "40bc6986197e411471d306bb8eb3a21c5b5f9d26"}}
+    from: {
+      master: {ref: "40bc6986197e411471d306bb8eb3a21c5b5f9d26"},
+      travis: {ref: "8b0a526e233b1599f8d5fcc1179e0ec7642acd90"}
+    }
   }
 
   git =
@@ -58,6 +61,9 @@ when "check"
     # `check-resource -f <version>`, but in this new world where we just always
     # collect all versions, that won't be necessary. in fact, `check-resource
     # -f <version>` would need to be given a space that it's checking against.
+    #
+    # TODO: how does the caller know if the given version no longer exists, and
+    # that the version history should be reset?
     commits =
       if version = $request[:from][b.name]
         begin
@@ -73,7 +79,7 @@ when "check"
     $stderr.puts "#{b.name}: #{commits.length} commits"
 
     spaces << {
-      space: {branch: b.name},
+      space: b.name,
       versions: commits
     }
   end
