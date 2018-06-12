@@ -94,8 +94,6 @@ TODO:
   single `info` entrypoint, which is run in the container's working directory.
   This is more platform-agnostic.
 
-* Introduction of some sort of schema validation for resource configuration.
-
 
 ## Changes to Versioned Artifact resources
 
