@@ -1,0 +1,58 @@
+# This example shows a subset of the main pipeline for supporting release
+# branches. There's quite a bit of duplication, but in principle you may have a
+# different set of checks and balances for patch releases.
+
+---
+resources:
+- name: booklit
+  type: git
+  source:
+    uri: https://github.com/vito/booklit
+
+- name: version
+  type: semver-git
+  source:
+    uri: https://github.com/vito/booklit
+
+jobs:
+- name: unit
+  plan:
+  - get: booklit
+    spaces: [release/*]
+    trigger: true
+  - task: unit
+    file: booklit/ci/test.yml
+
+- name: rc
+  plan:
+  - get: booklit
+    spaces: [release/*]
+    passed: [unit]
+    trigger: true
+  - put: version
+    params: {pre: rc, repo: booklit}
+
+- name: integration
+  plan:
+  - get: booklit
+    spaces: [release/*]
+    passed: [rc]
+    trigger: true
+  - task: integration
+    file: booklit/ci/integration.yml
+
+- name: ship
+  plan:
+  - get: booklit
+    spaces: [release/*]
+    passed: [integration]
+    trigger: true
+  - put: version
+    params: {bump: final, repo: booklit}
+
+- name: patch
+  plan:
+  - get: booklit
+    spaces: [release/*]
+  - put: version
+    params: {bump: patch, pre: rc, repo: booklit}

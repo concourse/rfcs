@@ -1,0 +1,121 @@
+# In this example, we demonstrate that today's model of an
+# always-rolling-forward pipeline doesn't need to mention spaces at all, so
+# long as the semver-git resource continuously rolls its "default space"
+# forward to the latest major.minor version available.
+#
+# Interesting note: the bin-rc and bosh-rc jobs will dynamically switch the
+# space they run against because they have a `get` of the resource's default
+# space, which will change as the version is bumped. This would result in the
+# box's color changing to 'pending' in the UI until a build in that space runs.
+
+---
+resources:
+- name: booklit
+  type: git
+  source:
+    uri: https://github.com/vito/booklit
+
+- name: version
+  type: semver-git
+  source:
+    uri: https://github.com/vito/booklit
+
+- name: bin-rc
+  type: s3
+
+- name: bosh-rc
+  type: s3
+
+jobs:
+- name: unit
+  plan:
+  - get: booklit
+    trigger: true
+  - task: unit
+    file: booklit/ci/test.yml
+
+- name: major
+  plan:
+  - get: booklit
+  - put: version
+    params: {bump: major, pre: rc, repo: booklit}
+
+- name: minor
+  plan:
+  - get: booklit
+  - put: version
+    params: {bump: minor, pre: rc, repo: booklit}
+
+- name: rc
+  plan:
+  - get: booklit
+    passed: [unit]
+    trigger: true
+  - put: version
+    params: {pre: rc, repo: booklit}
+
+- name: bin-rc
+  plan:
+  - get: booklit
+    passed: [rc]
+    trigger: true
+  - get: version
+    passed: [rc]
+    trigger: true
+  - task: build-rc
+    file: booklit/ci/bin-rc.yml
+  - put: bin-rc
+
+- name: bin-testflight
+  plan:
+  - get: booklit
+    passed: [bin-rc]
+    trigger: true
+  - get: bin-rc
+    passed: [bin-rc]
+    trigger: true
+  - task: integration
+    file: booklit/ci/testflight.yml
+
+- name: bosh-rc
+  plan:
+  - get: booklit
+    passed: [rc]
+    trigger: true
+  - get: version
+    passed: [rc]
+    trigger: true
+  - task: build-rc
+    file: booklit/ci/bosh-rc.yml
+  - put: bosh-rc
+
+- name: bosh-testflight
+  plan:
+  - get: booklit
+    passed: [bosh-rc]
+    trigger: true
+  - get: bosh-rc
+    passed: [bosh-rc]
+    trigger: true
+  - task: integration
+    file: booklit/ci/testflight.yml
+
+- name: ship
+  plan:
+  - get: booklit
+    passed: [bin-testflight, bosh-testflight]
+    trigger: true
+  - get: bin-rc
+    passed: [bin-testflight]
+  - get: bosh-rc
+    passed: [bosh-testflight]
+  - put: version
+    params: {bump: final, repo: booklit}
+
+- name: patch
+  plan:
+  - get: booklit
+    passed: [ship]
+    trigger: true
+  - put: version
+    params: {bump: patch, pre: rc, repo: booklit}

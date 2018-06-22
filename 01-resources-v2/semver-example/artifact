@@ -1,0 +1,150 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "git"
+require "semantic"
+
+# $request = JSON.parse(STDIN.read, symbolize_names: true)
+
+def commit_versions(log)
+  log.collect do |c|
+    {
+      version: {ref: c.sha},
+      metadata: [
+        {name: "author", value: c.author.name},
+        {name: "author_date", value: c.author_date},
+        {name: "commit", value: c.sha},
+        {name: "committer", value: c.committer.name},
+        {name: "committer_date", value: c.committer_date},
+        {name: "message", value: c.message}
+      ]
+    }
+  end
+end
+
+case ARGV[0]
+when "check"
+  $request = {
+    config: {uri: "https://github.com/concourse/concourse"},
+    from: {
+      "2.7": {version: "2.7.5"},
+      "3.0": {version: "3.0.0"},
+      "3.9": {version: "3.9.1"}
+    }
+  }
+
+  tags = Git.ls_remote($request[:config][:uri])["tags"]
+
+  versions = []
+  tags.each do |tag, _|
+    next unless tag =~ /^v\d/
+
+    # TODO: skip non-matches
+    versions << Semantic::Version.new(tag[1..-1])
+  end
+
+  versions.sort!
+
+  from = {}
+  $request[:from].each do |space, version|
+    from[space] = Semantic::Version.new(version[:version])
+  end
+
+  latest_space = nil
+
+  space_versions = {}
+  versions.each do |v|
+    name = "#{v.major}.#{v.minor}"
+    latest_space = name
+    next if from[name] && v < from[name]
+
+    space_versions[name] ||= []
+    space_versions[name] << {
+      version: {version: v.to_s},
+      metadata: []
+    }
+  end
+
+  spaces = []
+  space_versions.each do |space, vs|
+    spaces << {
+      space: space,
+      versions: vs,
+      has_latest: true
+    }
+  end
+
+  puts JSON.dump({
+    spaces: spaces,
+    default_space: latest_space
+  })
+
+when "get"
+  File.open("version", "w") do |file|
+    file.write($request[:version][:version])
+  end
+
+when "put"
+  $request = {
+    config: {
+      uri: "https://github.com/concourse/concourse",
+      file: "version/version",
+      repo: "concourse"
+    },
+    response: "./response.json"
+  }
+
+  # TODO: set up auth/etc
+  repo = Git.open($request[:config][:repo]).fetch("origin", tags: true)
+
+  if file_path = $config[:file]
+    version = Semantic::Version.new(File.read(file_path))
+  else
+    # get current version from latest tag
+    latest_tag = repo.describe("HEAD", tags: true, abbrev: 0, match: "v*")
+
+    version = Semantic::Version.new(latest_tag)
+
+    case bump = $config[:bump]
+    when "final"
+      version.pre = nil
+    else
+      # this ends with a ! but doesn't mutate it... weird.
+      version = version.increment!(bump)
+    end
+
+    if pre = $config[:pre]
+      num =
+        if version.pre
+          current_pre, current_num = version.identifiers(version.pre)
+          if pre == current_pre
+            current_num + 1
+          else
+            1
+          end
+        else
+          1
+        end
+
+      version.pre = "#{pre}.#{num}"
+    end
+  end
+
+  space = "#{version.major}.#{version.minor}"
+
+  tag = repo.add_tag("v#{version}", force: true)
+
+  # TODO: set up auth/etc
+  repo.push("origin", "refs/tags/#{tag.name}")
+
+  response = JSON.dump({
+    space => {
+      created: [{version: tag.name}],
+      deleted: []
+    }
+  })
+
+  File.open($request[:response], "w") do |f|
+    f.write(response)
+  end
+end
