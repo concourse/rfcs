@@ -1,0 +1,74 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "subprocess"
+require "stringio"
+
+# linux (~2 branches, ~766k commits)
+$request = {
+  config: {uri: "https://github.com/torvalds/linux"},
+  from: {}
+}
+
+# concourse (~15 branches, ~8500 commits)
+$request = {
+  config: {uri: "https://github.com/concourse/concourse"},
+  from: {}
+}
+
+# booklit (~10 branches, ~200 commits)
+$request = {
+  config: {uri: "https://github.com/vito/booklit"},
+  from: {}
+}
+
+# rails (~36 branches, ~70k commits)
+$request = {
+  config: {uri: "https://github.com/rails/rails"},
+  from: {}
+}
+
+def check_all
+  all_start = Time.now
+  check_has_latest = false
+  done_last_check = false
+
+  while true
+    check_start = Time.now
+
+    Subprocess::Process.new(
+      ["bundle", "exec", "./artifact", "check"],
+      stdin: Subprocess::PIPE,
+      stdout: Subprocess::PIPE) do |check|
+      out, _ = check.communicate(JSON.dump($request))
+
+      done_last_check = true if check_has_latest
+
+      res = JSON.parse(out, symbolize_names: true)
+
+      res[:spaces].each do |s|
+        space = s[:space]
+        versions = s[:versions]
+
+        if versions.first[:version] == versions.last[:version]
+          puts "checked #{space}: #{versions.first[:version][:ref]}"
+        else
+          puts "checked #{space}: #{versions.first[:version][:ref]}..#{versions.last[:version][:ref]}"
+        end
+
+        $request[:from][space] = versions.last[:version]
+      end
+
+      check_has_latest = res[:spaces].all? { |s| s[:has_latest] }
+    end
+
+    if done_last_check
+      puts "time for stable check: #{Time.now - check_start}s"
+      break
+    end
+  end
+
+  puts "total time for all checks: #{Time.now - all_start}s"
+end
+
+check_all

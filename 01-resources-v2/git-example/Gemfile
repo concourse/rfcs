@@ -1,4 +1,4 @@
 source :rubygems
 
-gem 'git'
+gem 'rugged'
 gem 'pry'

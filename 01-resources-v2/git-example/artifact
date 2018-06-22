@@ -1,92 +1,120 @@
 #!/usr/bin/env ruby
 
 require "json"
-require "git"
+require "rugged"
+require "pry"
+require "benchmark"
 
-# $request = JSON.parse(STDIN.read, symbolize_names: true)
+$request = JSON.parse(STDIN.read, symbolize_names: true)
 
-def commit_versions(log)
-  log.collect do |c|
-    {
-      version: {ref: c.sha},
-      metadata: [
-        {name: "author", value: c.author.name},
-        {name: "author_date", value: c.author_date},
-        {name: "commit", value: c.sha},
-        {name: "committer", value: c.committer.name},
-        {name: "committer_date", value: c.committer_date},
-        {name: "message", value: c.message}
-      ]
-    }
-  end
+# arbitrary number to limit memory usage; total commits to return at a time
+# (across all branches)
+CHECK_BATCH_LIMIT = 10000
+
+def commit_version(c)
+  {
+    version: {ref: c.oid},
+    metadata: [
+      {name: "author", value: enc(c, c.author[:name])},
+      {name: "author_date", value: c.author[:time].to_s},
+      {name: "committer", value: enc(c, c.committer[:name])},
+      {name: "committer_date", value: c.committer[:time].to_s},
+      {name: "message", value: enc(c, c.message)}
+    ]
+  }
+end
+
+def bench(label, &blk)
+  time = Benchmark.realtime(&blk)
+  $stderr.puts "#{label}: #{time}s"
+end
+
+def enc(c, str)
+  str = str.force_encoding("ISO-8859-1") unless c.header_field("Encoding")
+  str.encode("UTF-8")
 end
 
 case ARGV[0]
 when "check"
-  $request = {
-    config: {uri: "https://github.com/vito/booklit"},
-    from: {
-      master: {ref: "40bc6986197e411471d306bb8eb3a21c5b5f9d26"},
-      travis: {ref: "8b0a526e233b1599f8d5fcc1179e0ec7642acd90"}
-    }
-  }
+  repo_dir = File.basename($request[:config][:uri])
 
-  git =
-    if Dir.exists?("check-repo")
-      Git.open("check-repo").tap(&:fetch)
+  repo =
+    if Dir.exists?(repo_dir)
+      Rugged::Repository.new(repo_dir).tap do |r|
+        r.fetch("origin")
+      end
     else
-      Git.clone($request[:config][:uri], "check-repo")
+      Rugged::Repository.clone_at(
+        $request[:config][:uri],
+        repo_dir,
+        bare: true,
+        progress: lambda { |t| print t })
     end
 
   spaces = []
-  git.branches.local.each do |b|
-    # skip "default branch" entry
-    next if b.name =~ /HEAD ->/
+  default_branch = nil
 
-    b.checkout
+  total_commits = 0
 
-    paths = $request[:config][:paths] || ["."]
-    paths += ($request[:config][:ignore_paths] || []).collect { |p| ":!" + p }
+  repo.branches.each do |b|
+    unless b.remote?
+      # assume the only local branch is the default one
+      default_branch = b.name
+      next
+    end
 
-    log = git.log(nil).path(paths)
+    space_name = b.name.sub("#{b.remote_name}/", "")
 
-    # TODO: this will get *all* commits and load it into memory, which is
-    # probably a bad idea. the linux repo for example has 710k+ commits.
-    #
-    # should this be paginated? or should it stream each version back to the
-    # caller somehow so everything doesn't have to be sucked into memory?
-    #
-    # TODO: when checking from a given version, should the given version be
-    # returned? this was done in the original API so that you could run
-    # `check-resource -f <version>`, but in this new world where we just always
-    # collect all versions, that won't be necessary. in fact, `check-resource
-    # -f <version>` would need to be given a space that it's checking against.
-    #
-    # TODO: how does the caller know if the given version no longer exists, and
-    # that the version history should be reset?
-    commits =
-      if version = $request[:from][b.name]
-        begin
-          commit_versions(log.between(version[:ref]))
-        rescue
-          # bad ref; emit all versions
-          commit_versions(log)
+    has_latest = false
+    commits = []
+
+    walker = Rugged::Walker.new(repo)
+    walker.sorting(Rugged::SORT_TOPO|Rugged::SORT_REVERSE)
+    walker.simplify_first_parent
+    walker.push(b.target)
+
+    from = $request[:from][space_name.to_sym]
+
+    if from && repo.include?(from[:ref])
+      commit = repo.lookup(from[:ref])
+      walker.hide(commit)
+
+      commits << commit_version(commit)
+      total_commits += 1
+      has_latest = commit.oid == b.target.oid
+    end
+
+    unless has_latest || total_commits >= CHECK_BATCH_LIMIT
+      bench("#{space_name} walk") do
+        walker.walk do |c|
+          # TODO: test if commit satisfies paths/ignore_paths
+          commits << commit_version(c)
+          total_commits += 1
+          has_latest = c.oid == b.target.oid
+
+          break if total_commits >= CHECK_BATCH_LIMIT
         end
-      else
-        commit_versions(log)
       end
+    end
 
-    $stderr.puts "#{b.name}: #{commits.length} commits"
+    next if commits.empty?
+
+    $stderr.puts "#{space_name} commits: #{commits.size} (latest: #{has_latest})"
 
     spaces << {
-      space: b.name,
-      versions: commits
+      space: space_name,
+      versions: commits,
+      has_latest: has_latest
     }
   end
 
-  response = JSON.dump(spaces)
-  puts response
-  puts response.size
+  bench("dump") do
+    puts JSON.dump({
+      spaces: spaces,
+      default_space: default_branch
+    })
+  end
+
 when "get"
   $request = {
     config: {uri: "https://github.com/vito/booklit"},
@@ -94,12 +122,15 @@ when "get"
     version: {ref: "f828f2758256b0e93dc3c101f75604efe92ca07e"}
   }
 
-  git =
-    Git.clone($request[:config][:uri], "dot", # TODO: irl this would be '.'
-              branch: $request[:space],
-              recursive: true)
+  repo =
+    Rugged::Repository.clone_at(
+      $request[:config][:uri],
+      "dot", # TODO: irl this would be '.'
+      checkout_branch: $request[:space])
 
-  git.checkout($request[:version][:ref])
+  repo.checkout($request[:version][:ref])
+
+  # TODO: update/init submodules recursively
 
   # TODO: draw the rest of the owl
   #

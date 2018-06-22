@@ -9,59 +9,201 @@ Introduces a new resource interface with the following goals:
 
 * Introduce a more airtight "versioned artifacts" interface, tightening up
   loopholes in today's resource API to ensure that resources are pointing at an
-  external source of truth and cannot be partially implemented or hacky.
+  external source of truth, so that we can explicitly design for new features
+  and workflows rather than forcing everything into the resource interface.
 
-* Extend the versioned artifacts interface to support deletion of versions,
-  either by an explicit `delete` call or by somehow noticing that versions have
-  disappeared.
+* Extend the versioned artifacts interface to support deletion of versions.
 
 
 # Proposal
 
-At this early stage of the RFC, it's easiest for me to just use Elm syntax and
-pretend this is all in a type system.
-
-In reality, each of these functions would be scripts with JSON requests passed
-to them on stdin. I'm going to use the `Bits` type just to represent which calls
-have state on disk to either access (like `put`) or return (like `get`). This
-would normally just be the working directory of the script.
-
 ## General Types
 
-```elm
--- arbitrary configuration
-type alias Config = Dict String Json.Value
+```go
+// Space is a name of a space, e.g. "master", "release/3.14", "1.0".
+type Space string
 
--- identifier for space, i.e. 'foo' or '1.2'
-type alias Space = String
+// Config is a black box containing all user-supplied configuration, combining
+// `source` in the resource definition with `params` from the step (in the
+// case of `get` or `put`).
+type Config map[string]interface{}
 
--- identifier for version, i.e. {"version":"1.2"}
-type alias Version = Dict String String
+// Version is a key-value identifier for a version of a resource, e.g.
+// `{"ref":"abcdef"}`, `{"version":"1.2.3"}`.
+type Version map[string]string
 
--- arbitrary ordered metadata (we may make this fancier in the future)
-type alias Metadata = List (String, String)
+// Metadata is an ordered list of metadata fields to display to the user about
+// a resource version. It's ordered so that the resource can decide the best
+// way to show it.
+type Metadata []MetadataField
 
--- data on disk
-type alias Bits = ()
+// MetadataField is an arbitrary key-value to display to the user about a
+// version of a resource.
+type MetadataField struct {
+  Name  string `json:"name"`
+  Value string `json:"value"`
+}
 ```
 
 ## Versioned Artifacts interface
 
-```elm
-check   : Config -> Dict Space Version -> Dict Space (List (Version, Metadata))
-get     : Config -> Space -> Version -> Bits
-put     : Config -> Bits -> Dict Space { created : Set Version, deleted : Set Version }
+### `check`: Detect versions across spaces.
+
+The `check` command will be invoked with the following JSON structure on
+`stdin`:
+
+```go
+// CheckRequest contains the resource's configuration and latest version
+// associated to each space.
+type CheckRequest struct {
+  Config Config            `json:"config"`
+  From   map[Space]Version `json:"from"`
+}
 ```
+
+The first call will have an empty object as `from`.
+
+Any spaces discovered by the resource but not present in `from` should collect
+versions from the beginning.
+
+For each space in `from`, the resource should collect all versions that appear
+*after* the current version, including the given version if it's still present.
+If the given version is no longer present, the resource should instead collect
+from the beginning, as if the space was not specified.
+
+If any space in `from` is no longer present, the resource should ignore it, and
+not include it in the response.
+
+The resource may limit the number of versions it returns however it likes in
+order to save RAM and incrementally build the history. The `has_latest` field in
+the response (see below) is used to indicate this scenario.
+
+The resource should also determine a "default space", if any. Having a default
+space is useful for things like Git repos which have a default branch, or
+version spaces (e.g. `1.8`, `2.0`) which can point to the latest version line by
+default. If there is no default space, the user must specify it explicitly in
+the pipeline, either by configuring one on the resource (`space: foo`) or on the
+`get` step (`spaces: [foo]`).
+
+The command should then emit the collected versions and default space (if any)
+as following JSON response structure to `stdout`:
+
+```go
+// CheckResponse returns the detected spaces and the default space, if any.
+type CheckResponse struct {
+  Spaces       []DetectedSpace `json:"spaces"`
+  DefaultSpace *Space          `json:"default_space"`
+}
+
+// DetectedSpace is a space and the versions detected therein, listed in
+// chronological order.
+//
+// The HasLatest field indicates whether the list of versions includes the
+// latest version. Until the latest version is collected, Concourse will not
+// schedule the space. This allows resources to limit the number of versions
+// they return at once for things with a ton of history.
+type DetectedSpace struct {
+  Space     Space             `json:"space"`
+  Versions  []DetectedVersion `json:"versions"`
+  HasLatest bool              `json:"has_latest"`
+}
+
+// DetectedVersion is a version within a space with its associated metadata.
+type DetectedVersion struct {
+  Version  Version  `json:"version"`
+  Metadata Metadata `json:"metadata"`
+}
+```
+
+
+### `get`: Fetch a version from the resource's space.
+
+The `get` command will be invoked with the following JSON structure on `stdin`:
+
+```go
+type GetRequest struct {
+  Config  Config  `json:"config"`
+  Space   Space   `json:"space"`
+  Version Version `json:"version"`
+}
+```
+
+The command will be invoked with a completely empty working directory. The
+command should populate this directory with the requested bits. The `git`
+resource, for example, would clone directly into the working directory.
+
+If the requested version is unavailable, the command should exit nonzero.
+
+No response is expected.
+
+Anything printed to `stdout` and `stderr` will propagate to the build logs.
+
+
+### `put`: Idempotently create or destroy resource versions in a space.
+
+The `put` command will be invoked with the following JSON structure on `stdin`:
+
+```go
+type PutRequest struct {
+  Config       Config `json:"config"`
+  ResponsePath string `json:"response_path"`
+}
+```
+
+The command will be invoked with all of the build plan's artifacts present in
+the working directory, each as `./(artifact name)`.
+
+The command should perform any and all side-effects idempotently, and then
+record the following JSON response structure to the file specified by
+`response_path`:
+
+```go
+type PutResponse struct {
+  Space   Space     `json:"space"`
+  Created []Version `json:"created"`
+  Deleted []Version `json:"deleted"`
+}
+```
+
+The `space` field determines the space that has been modified or created. This
+allows new spaces to be generated by a `put` dynamically (based on params
+and/or the bits in its working directory) and propagated to the rest of the
+pipeline.
+
+Versions returned under `created` will be recorded as outputs of the build. A
+`check` will then be performed to fill in the metadata and determine the
+ordering of the versions. Once the ordering is learned, the latest version will
+be fetched by the implicit `get`.
+
+Versions returned under `deleted` will be marked as deleted. They will remain
+in the database for archival purposes, but will no longer be input candidates
+for any builds, and can no longer be fetched.
+
+Anything printed to `stdout` and `stderr` will propagate to the build logs.
+
 
 # Examples
 
 ## Resource Implementations
 
-I've started implementing a new `git` resource alongside this
-document. See
-[`git-example/`](https://github.com/vito/rfcs/tree/resources-v2/01-resources-v2/git-example).
-I've left `TODO`s for parts that need more thinking or discussion. Please
-leave comments!
+I've started cooking up new resources using this interface. I've left `TODO`s
+for parts that need more thinking or discussion. Please leave comments!
+
+### `git`
+
+[Code](https://github.com/vito/rfcs/tree/resources-v2/01-resources-v2/git-example)
+
+This resource models the original `git` resource. It represents each branch as a space.
+
+### `semver-git`
+
+[Code](https://github.com/vito/rfcs/tree/resources-v2/01-resources-v2/semver-example)
+
+This is a whole new semver resource intended to replace the original `semver`
+resource with a better model that supports concurrent version lines (i.e.
+supporting multiple major/minor releases with patches). It does this by managing
+tags in an existing Git repository.
+
 
 ## Pipeline Usage
 
@@ -111,8 +253,7 @@ TODO:
   efficiently perform the check. It also keeps the container overhead down to
   one per resource, rather than one per space.
 
-* Change `put` to emit a set of created versions for each space, rather than
-  just one.
+* Change `put` to emit a set of created versions, rather than just one.
 
   Technically the `git` resource may push many commits, so returning more than
   one version is necessary to track them all as outputs of a build. This could
@@ -165,14 +306,14 @@ TODO:
 <details><summary>Can we reduce the `check` overhead?</summary>
 
 <p>
-~~With spaces there will be more `check`s than ever. Right now, there's one
+<strike>With spaces there will be more `check`s than ever. Right now, there's one
 container per recurring `check`. Can we reduce the container overhead here by
 requiring that resource `check`s be side-effect free and able to run in
-parallel?~~
+parallel?</strike>
 </p>
 
 <p>
-~~There may be substantial security implications for this.~~
+<strike>There may be substantial security implications for this.</strike>
 </p>
 
 <p>
@@ -187,16 +328,16 @@ least consume only one container.
 <details><summary>Is `destroy` general enough to be a part of the interface?</summary>
 
 <p>
-~~It may be the case that most resources cannot easily support `destroy`. One
+<strike>It may be the case that most resources cannot easily support `destroy`. One
 example is the `git` resource. It doesn't really make sense to `destroy` a
 commit. Even if it did (`push -f`?), it's a kind of weird workflow to support
-out of the box.~~
+out of the box.</strike>
 </p>
 
 <p>
-~~Could we instead just have `put` and ensure that we `check` in such a way that
+<strike>Could we instead just have `put` and ensure that we `check` in such a way that
 deleted versions are automatically noticed? What would the overhead of this
-be?~~ This only works if the versions are "chained", as with the `git` case.
+be?</strike> This only works if the versions are "chained", as with the `git` case.
 </p>
 
 <p>
@@ -209,23 +350,23 @@ into an idempotent versioned artifact side effect performer.
 <details><summary>Should `put` be given a space or return the space?</summary>
 
 <p>
-~~The verb `PUT` in HTTP implies an idempotent action against a given resource. So
-it's intuitive that the `put` verb here would do the same.~~
+<strike>The verb `PUT` in HTTP implies an idempotent action against a given resource. So
+it's intuitive that the `put` verb here would do the same.</strike>
 </p>
 <p>
-~~However, many of today's usage of `put` would be against a dynamically
+<strike>However, many of today's usage of `put` would be against a dynamically
 determined space. For example, most semver workflows involve `put`ing with the
 version determined by a file (often coming from the `semver` resource). So the
-space isn't known statically at pipeline configuration time.~~
+space isn't known statically at pipeline configuration time.</strike>
 </p>
 <p>
-~~What's more, the resulting space for a semver push would only be `MAJOR.MINOR`,
+<strike>What's more, the resulting space for a semver push would only be `MAJOR.MINOR`,
 excluding the final patch segment. This is annoying to have to explicitly
-configure in your build.~~
+configure in your build.</strike>
 </p>
 <p>
-~~If we instead have `put` return both the space and the versions, this would be a
-lot simpler.~~
+<strike>If we instead have `put` return both the space and the versions, this would be a
+lot simpler.</strike>
 </p>
 <p>
 Answered this at the same time as having `put` return a set of deleted

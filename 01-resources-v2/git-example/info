@@ -4,7 +4,7 @@ require "json"
 
 puts JSON.dump({
   artifacts: {
-    version: "2.0",
+    api_version: "2.0",
     check: "artifact check",
     get: "artifact get",
     put: "artifact put"

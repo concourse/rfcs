@@ -2,18 +2,18 @@ GEM
   remote: http://rubygems.org/
   specs:
     coderay (1.1.2)
-    git (1.4.0)
     method_source (0.9.0)
     pry (0.11.3)
       coderay (~> 1.1.0)
       method_source (~> 0.9.0)
+    rugged (0.27.2)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
-  git
   pry
+  rugged
 
 BUNDLED WITH
    1.16.2
