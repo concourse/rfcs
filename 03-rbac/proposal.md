@@ -40,6 +40,55 @@ The main drawback here is that we would have to merge `auth` configuration becau
 For backwards compatibility, the default role would be `member` if you don't pass the `--role` flag.
 
 
+#### Maybe time for config files?
+
+An alternative approach would be to start introducing config files for `fly set-team(s)`.
+
+```bash
+fly -t mytarget set-teams -c /tmp/team-config
+```
+
+Where `/tmp/team-config` might look something like:
+
+```yaml
+teams: 
+  main: 
+    admin: true
+    roles: 
+      member: 
+        github:
+          teams: ["myorg:myteam"]
+          users: ["pivotal-jwinters"]
+  myteam: 
+    admin: false
+    roles: 
+      member:
+      	local: 
+          users: ["myusername"]
+      viewer: 
+        allow_all_users: true
+```
+
+Or maybe `toml` ¯\\_(ツ)_/¯
+
+```toml
+[teams.main]
+admin = true
+  
+[teams.main.roles.member.github]
+teams = ["myorg:myteam"]
+users = ["pivotal-jwinters"]
+
+[teams.myteam]
+admin = false
+  
+[teams.myteam.roles.member.local]
+users = ["myusername"]
+  
+[teams.myteam.roles.viewer]
+allow_all_users = true
+```
+
 ##  How do roles get persisted in the database?
 
 To allow all users, we store team auth like the following:
