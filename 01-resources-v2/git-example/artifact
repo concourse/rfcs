@@ -48,7 +48,7 @@ when "check"
         $request[:config][:uri],
         repo_dir,
         bare: true,
-        progress: lambda { |t| print t })
+        progress: lambda { |t| $stderr.print t })
     end
 
   spaces = []
