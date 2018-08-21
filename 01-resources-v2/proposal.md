@@ -56,8 +56,9 @@ The `check` command will be invoked with the following JSON structure on
 // CheckRequest contains the resource's configuration and latest version
 // associated to each space.
 type CheckRequest struct {
-  Config Config            `json:"config"`
-  From   map[Space]Version `json:"from"`
+  Config       Config            `json:"config"`
+  From         map[Space]Version `json:"from"`
+  ResponsePath string            `json:"response_path"`
 }
 ```
 
@@ -86,7 +87,7 @@ the pipeline, either by configuring one on the resource (`space: foo`) or on the
 `get` step (`spaces: [foo]`).
 
 The command should then emit the collected versions and default space (if any)
-as following JSON response structure to `stdout`:
+as following JSON response structure the file specified by `response_path`:
 
 ```go
 // CheckResponse returns the detected spaces and the default space, if any.
