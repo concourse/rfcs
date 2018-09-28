@@ -1,12 +1,32 @@
 # Summary
 
-The goal here is to start a discussion about how to store a user's team memberships. So far we've talked about two different options:
+In Concourse, when a user logs in, we gather all their team memberships and encode them into their access token. This comes with a number of benefits, however the main drawback is that if they get assigned to a new team, they need to log out and log back in for this to have an effect.
 
-- Store them in the token (this is what we do now)
-- Store them in the database
+So the goal of this proposal is to have a discussion about the benefits and drawbacks of encoding these teams in the token vs doing a lookup in the database on each API request.
 
 
-## Store them in the token
+## Encode them in the token (current solution)
+
+The payload of a Concourse token until very recently looked like this:
+
+```
+{
+  "user_id": 1234567890,
+  "teams": ["main", "some-team", "some-other-team"]
+}
+```
+
+Now that we've introduced `roles` it looks more like this:
+
+```
+{
+  "user_id": 1234567890,
+  "teams": ["main:owner", "some-team:viewer", "some-other-team:member"]
+}
+```
+
+On each API request we verify the token and then extract the teams and roles, and then make sure you're allowed to perform the given action.
+
 
 ### Advantages
 
