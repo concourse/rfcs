@@ -37,7 +37,7 @@ fly -t mytarget set-team -n myteam -c /tmp/team-config
 
 Where `/tmp/team-config` might look something like:
 
-### Optional 1 - roles array
+### Option 1 - roles array
 
 ```yaml
 roles: 
@@ -57,7 +57,7 @@ roles:
 
 or this:
 
-### Optional 2 - roles map
+### Option 2 - roles map
 
 ```yaml
 roles: 
