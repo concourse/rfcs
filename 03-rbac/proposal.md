@@ -96,6 +96,8 @@ When a user logs into Concourse, we encode all their team memberships into their
 
 The API uses this information to determine wether or not the request is authorized. It won't allow requests on a team's resource if the user isn't a member of that team.
 
+
+### Option 1 - team:role tuples
 If we wanted to introduce roles we could simply encode them into the token as follows:
 ```
 {
@@ -110,10 +112,50 @@ Because a user can meet more than one auth criteria configured for a team, they 
 {
 	"is_admin": true,
 	"teams": ["team1:viewer", "team2:viewer", "team2:member"],
+	...
 }
 ```
 
 This is fine. The API will just cycle through the roles until it finds the one it cares about. 
 
+### Option 2 - Something a bit more structured
 
+Maybe we want something a bit more structure to make changes easier down the road.
+
+```
+{
+	"is_admin": true,
+	"teams": [
+	  {"name": "team1", "roles": ["viewer"]},
+	  {"name": "team2", "roles": ["viewer", "member"]}
+	],
+	...
+}
+```
+
+The main disadvantage here is that it starts to bloat the size of our token. 
+
+Here are a couple slimmed down alternatives:
+
+```
+{
+	"is_admin": true,
+	"teams": [
+	  {"team1": ["viewer"]},
+	  {"team2": ["viewer", "member"]}
+	],
+	...
+}
+```
+
+```
+{
+	"is_admin": true,
+	"teams": {
+	  "team1": ["viewer"],
+	  "team2": ["viewer", "member"]
+	},
+	...
+}
+```
 
