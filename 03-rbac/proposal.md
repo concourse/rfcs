@@ -37,6 +37,8 @@ fly -t mytarget set-team -n myteam -c /tmp/team-config
 
 Where `/tmp/team-config` might look something like:
 
+### Optional 1 - roles array
+
 ```yaml
 roles: 
 - name: owner
@@ -55,6 +57,7 @@ roles:
 
 or this:
 
+### Optional 2 - roles map
 
 ```yaml
 roles: 
@@ -71,6 +74,8 @@ roles:
   viewer:
     allow_all_users: true
 ```
+
+Or something else?
 
 
 ##  How do roles get persisted in the database?
