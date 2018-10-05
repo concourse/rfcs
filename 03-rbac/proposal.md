@@ -43,8 +43,8 @@ roles:
   local: 
     users: ["some-admin"]
 - name: member
-  local: 
-    users: ["myusername"]
+  github: 
+    users: ["my-github-login"]
 - name: viewer
   allow_all_users: true
 ```
