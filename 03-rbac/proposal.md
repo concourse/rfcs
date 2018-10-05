@@ -12,81 +12,41 @@ Introduces a proposal for RBAC. Specifically:
 
 ## What roles do we need?
 
-`global_admin` or `admin` - Granted if you are part of an admin team. Currently only the `main` team is an admin team.
+`admin` - Granted if you are part of an admin team. Currently only the `main` team is an admin team.
 
-`team_member` or `member` - Granted during `fly set-team`. Has read/write access to all the team's resources.
+`owner` - Granted during `fly set-team`. Has read/write access to all the team's resources, as well as admin priviledges for the team itself (`set-team`, `rename-team`, etc).
 
-`team_viewer` or `viewer` - Granted during `fly set-team`. Has readonly access to all the team's resources.
+`member` - Granted during `fly set-team`. Has read/write access to all the team's resources.
 
-`public` - Not a role. This applies to pipelines. Public pipelines will behave as they did before.
+`viewer` - Granted during `fly set-team`. Has readonly access to all the team's resources.
 
 
 ## How would fly set-team work?
 
-Currently you fly set-team like the following:
+Fly set-team should work the same as before:
 ```bash
 fly -t mytarget set-team -n myteam --allow-all-users
 fly -t mytarget set-team -n myotherteam --github-user pivotal-jwinters --github-team myorg:myteam
 ```
 
-We could allow roles to be set as follows:
-```bash
-fly -t mytarget set-team -n myteam --role viewer --allow-all-users
-fly -t mytarget set-team -n myteam --role member --github-user pivotal-jwinters --github-team myorg:myteam
-```
-
-The main drawback here is that we would have to merge `auth` configuration because `viewers` and `members` would be configured in two separate steps.  The current behaviour overwrites the entire auth config each time, so in keeping with the current behaviour I guess we would overwrite the entire config for each role separately. 
-
-For backwards compatibility, the default role would be `member` if you don't pass the `--role` flag.
-
-
-#### Maybe time for config files?
-
-An alternative approach would be to start introducing config files for `fly set-team(s)`.
+This will assign the `owner` role to the specified users and groups. If you want more control over which roles get assigned, you can provide a config file with the mappings.
 
 ```bash
-fly -t mytarget set-teams -c /tmp/team-config
+fly -t mytarget set-team -n myteam -c /tmp/team-config
 ```
 
 Where `/tmp/team-config` might look something like:
 
 ```yaml
-teams: 
-  main: 
-    admin: true
-    roles: 
-      member: 
-        github:
-          teams: ["myorg:myteam"]
-          users: ["pivotal-jwinters"]
-  myteam: 
-    admin: false
-    roles: 
-      member:
-      	local: 
-          users: ["myusername"]
-      viewer: 
-        allow_all_users: true
-```
-
-Or maybe `toml` ¯\\_(ツ)_/¯
-
-```toml
-[teams.main]
-admin = true
-  
-[teams.main.roles.member.github]
-teams = ["myorg:myteam"]
-users = ["pivotal-jwinters"]
-
-[teams.myteam]
-admin = false
-  
-[teams.myteam.roles.member.local]
-users = ["myusername"]
-  
-[teams.myteam.roles.viewer]
-allow_all_users = true
+roles: 
+- name: owner
+  local: 
+    users: ["some-admin"]
+- name: member
+  local: 
+    users: ["myusername"]
+- name: viewer
+  allow_all_users: true
 ```
 
 ##  How do roles get persisted in the database?
