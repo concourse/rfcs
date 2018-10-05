@@ -45,9 +45,33 @@ roles:
 - name: member
   github: 
     users: ["my-github-login"]
+    teams: ["my-org:my-github-team"]
+  cf: 
+    users: ["myusername"]
+    spaces: ["myorg:myspace"]
 - name: viewer
   allow_all_users: true
 ```
+
+or this:
+
+
+```yaml
+roles: 
+  owner:
+    local: 
+      users: ["some-admin"]
+  member:
+    github: 
+      users: ["my-github-login"]
+      teams: ["my-org:my-github-team"]
+    cf: 
+      users: ["myusername"]
+      spaces: ["myorg:myspace"]
+  viewer:
+    allow_all_users: true
+```
+
 
 ##  How do roles get persisted in the database?
 
