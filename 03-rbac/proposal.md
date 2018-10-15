@@ -164,18 +164,7 @@ Maybe we want something a bit more structure to make changes easier down the roa
 
 The main disadvantage here is that it starts to bloat the size of our token. 
 
-Here are a couple slimmed down alternatives:
-
-```
-{
-	"is_admin": true,
-	"teams": [
-	  {"team1": ["viewer"]},
-	  {"team2": ["viewer", "member"]}
-	],
-	...
-}
-```
+Or a slimmed down alternative:
 
 ```
 {
