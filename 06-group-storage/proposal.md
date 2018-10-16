@@ -59,6 +59,4 @@ On each API request we verify the token and then extract the teams and roles, an
 
 - It's slower. Every api request requires a database lookup.
 
-- It's a more complex data model. More things to manage in the database.
-
 - We still don't have full control over upstream groups. This means that if you're added to a new team in github, for example, you would still need to log out and log back in for us to pick up those changes.
