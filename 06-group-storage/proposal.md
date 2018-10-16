@@ -21,7 +21,11 @@ Now that we've introduced `roles` it looks more like this:
 ```
 {
   "user_id": 1234567890,
-  "teams": ["main:owner", "some-team:viewer", "some-other-team:member"]
+  "teams": {
+    "main": ["owner"],
+    "some-team": ["viewer"],
+    "some-other-team": ["member"]
+  }
 }
 ```
 
