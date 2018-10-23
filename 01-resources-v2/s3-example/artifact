@@ -1,0 +1,114 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'aws-sdk-s3'
+require 'semverly'
+
+Aws.config.update(
+  region: 'us-east-1',
+  credentials: Aws::Credentials.new(ENV['ACCESS_KEY_ID'],
+                                    ENV['SECRET_ACCESS_KEY'])
+)
+
+client = Aws::S3::Client.new
+
+case ARGV[0]
+when 'check'
+  request = {
+    config: {
+      bucket: 'concourse-s3-test',
+      regex: 'concourse-(.*).pivotal'
+    },
+    response_path: '/tmp/response'
+  }
+
+  bucket = request[:config][:bucket]
+  prefix = request[:config][:regex].partition('(').first
+  file = File.new request[:response_path], 'w'
+
+  response = client.list_objects_v2(
+    bucket: bucket,
+    prefix: prefix
+  )
+
+  versions = []
+
+  response.contents.each do |object|
+    matches = object.key.match request[:config][:regex]
+    continue unless matches
+
+    semver = SemVer.parse(matches[1])
+    space = "#{semver.major}.#{semver.minor}"
+
+    versions << { space: space, path: object.key, version: matches[1] }
+  end
+
+  versions = versions.sort_by do |version|
+    [version[:space], SemVer.parse(version[:version])]
+  end
+
+  latest_version = versions.last
+  if latest_version
+    file.puts JSON.dump(
+      default_space: latest_version[:space]
+    )
+  else
+    file.puts JSON.dump(
+      default_space: nil
+    )
+  end
+
+  versions.each do |version|
+    file.puts JSON.dump(
+      space: version[:space],
+      version: { path: version[:path] },
+      metadata: []
+    )
+  end
+
+  file.close
+
+when 'get'
+  request = {
+    config: {
+      bucket: 'concourse-s3-test',
+      regex: 'concourse-(.*).pivotal'
+    },
+    space: '1.0',
+    version: { path: 'concourse-1.0.0.pivotal' }
+  }
+
+  client.get_object(
+    response_target: request[:version][:path],
+    bucket: request[:config][:bucket],
+    key: request[:version][:path]
+  )
+
+when 'put'
+  request = {
+    config: {
+      bucket: 'concourse-s3-test',
+      regex: 'concourse-(.*).pivotal',
+      file: 'concourse-3.0.0.pivotal'
+    },
+    response_path: '/tmp/response'
+  }
+
+  matches = request[:config][:file].match request[:config][:regex]
+  raise 'file path does not match regex' unless matches
+
+  semver = SemVer.parse(matches[1])
+  space = "#{semver.major}.#{semver.minor}"
+
+  File.open(request[:config][:file], 'rb') do |f|
+    client.put_object(bucket: request[:config][:bucket],
+                      key: request[:config][:file], body: f)
+  end
+
+  File.open(request[:response_path], 'w') do |f|
+    f.puts JSON.dump(
+      space: space,
+      Created: [{ path: request[:config][:file] }]
+    )
+  end
+end

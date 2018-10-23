@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+require "json"
+
+puts JSON.dump({
+  artifacts: {
+    api_version: "2.0",
+    check: "artifact check",
+    get: "artifact get",
+    put: "artifact put"
+  }
+})

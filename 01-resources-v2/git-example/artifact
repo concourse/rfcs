@@ -7,12 +7,9 @@ require "benchmark"
 
 $request = JSON.parse(STDIN.read, symbolize_names: true)
 
-# arbitrary number to limit memory usage; total commits to return at a time
-# (across all branches)
-CHECK_BATCH_LIMIT = 10000
-
-def commit_version(c)
-  {
+def commit_version(c, s)
+  JSON.dump({
+    space: s,
     version: {ref: c.oid},
     metadata: [
       {name: "author", value: enc(c, c.author[:name])},
@@ -21,7 +18,7 @@ def commit_version(c)
       {name: "committer_date", value: c.committer[:time].to_s},
       {name: "message", value: enc(c, c.message)}
     ]
-  }
+  })
 end
 
 def bench(label, &blk)
@@ -53,19 +50,21 @@ when "check"
 
   spaces = []
   default_branch = nil
-
-  total_commits = 0
+  file = File.new $request[:response_path], 'w'
 
   repo.branches.each do |b|
     unless b.remote?
       # assume the only local branch is the default one
       default_branch = b.name
+
+      file.puts JSON.dump({
+        default_space: default_branch
+      })
       next
     end
 
     space_name = b.name.sub("#{b.remote_name}/", "")
 
-    has_latest = false
     commits = []
 
     walker = Rugged::Walker.new(repo)
@@ -79,41 +78,22 @@ when "check"
       commit = repo.lookup(from[:ref])
       walker.hide(commit)
 
-      commits << commit_version(commit)
-      total_commits += 1
-      has_latest = commit.oid == b.target.oid
+      file.puts commit_version(commit, space_name)
     end
 
-    unless has_latest || total_commits >= CHECK_BATCH_LIMIT
-      bench("#{space_name} walk") do
-        walker.walk do |c|
-          # TODO: test if commit satisfies paths/ignore_paths
-          commits << commit_version(c)
-          total_commits += 1
-          has_latest = c.oid == b.target.oid
-
-          break if total_commits >= CHECK_BATCH_LIMIT
-        end
+    bench("#{space_name} walk") do
+      walker.walk do |c|
+        # TODO: test if commit satisfies paths/ignore_paths
+        file.puts commit_version(c, space_name)
       end
     end
 
     next if commits.empty?
 
     $stderr.puts "#{space_name} commits: #{commits.size} (latest: #{has_latest})"
-
-    spaces << {
-      space: space_name,
-      versions: commits,
-      has_latest: has_latest
-    }
   end
 
-  bench("dump") do
-    puts JSON.dump({
-      spaces: spaces,
-      default_space: default_branch
-    })
-  end
+  file.close
 
 when "get"
   $request = {
