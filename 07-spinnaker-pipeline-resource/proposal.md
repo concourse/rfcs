@@ -16,7 +16,9 @@ The idea is build on an already existing [resource](https://github.com/burdzwast
 - `skip_ssl_verification`: **TODO** make sure it is possible.
 - `client_x509_cert`: Client [certificate](https://www.spinnaker.io/setup/security/authentication/x509/) to authenticate with Spinnaker.
 - `client_x509_key`: Client [key](https://www.spinnaker.io/setup/security/authentication/x509/) to authenticate with Spinnaker.
-- `statuses`: *Optional* for the check step to filter the Spinnaker pipeline execution statuses.
+- `check_statuses`: *Optional* Array of Spinnaker pipeline execution statuses to check for new versions.
+ Current Supported statuses by spinnaker: NOT_STARTED, RUNNING, PAUSED, SUSPENDED, SUCCEEDED, FAILED_CONTINUE, TERMINAL, CANCELED, REDIRECT, STOPPED, SKIPPED, BUFFERED 
+[reference](https://github.com/spinnaker/gate/blob/1cb00104f925e484d7a7a333bf07bd149adb0464/gate-web/src/main/groovy/com/netflix/spinnaker/gate/controllers/ExecutionsController.java#L82). If not supplied each execution will have a version regardless of the status.
 
 ## Behaviour
 
@@ -39,6 +41,9 @@ Places the following files in the destination:
 Triggers a Spinnaker pipeline.
 
 #### Parameters
+- `required_status`: *Optional* A status that is required for the put step to succeed.
+- `required_status_timeout`: *Optional* The amount of time after which the put step will timeout waiting for the `required_status`. Default value will be `30m`.
+
 **NOTE:** Any [metadata](http://concourse.ci/implementing-resources.html#resource-metadata) in the parameters will be evaluated prior to triggering the pipeline. 
 
 ##### Option 1
@@ -86,8 +91,8 @@ resources:
     type: spinnaker
     source:
       spinnaker_api: ((spinnaker-api))
-      spinnaker_x509_cert: ((spinnaker-x509-cert))
-      spinnaker_x509_key: ((spinnaker-x509-key))
+      client_x509_cert: ((client-x509-cert))
+      client_x509_key: ((client-x509-key))
       spinnaker_application: samplespinnakerapp
       spinnaker_pipeline: samplespinnakerpipeline
 
@@ -114,8 +119,8 @@ resources:
     type: spinnaker
     source:
       spinnaker_api: ((spinnaker-api))
-      spinnaker_x509_cert: ((spinnaker-x509-cert))
-      spinnaker_x509_key: ((spinnaker-x509-key))
+      client_x509_cert: ((client-x509-cert))
+      client_x509_key: ((client-x509-key))
       spinnaker_application: samplespinnakerapp
       spinnaker_pipeline: samplespinnakerpipeline
       statuses:
