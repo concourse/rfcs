@@ -26,6 +26,8 @@ Pipeline executions will be found by fetching pipeline executions for the config
 
 The pipeline execution `id` will be used as the version of the resource.
 
+API : `GET /applications/{application}/pipelines`
+
 ### `in`
 
 Places the following files in the destination:
@@ -33,6 +35,8 @@ Places the following files in the destination:
  - `metadata.json`: Contains the pipeline execution metadata returned from the Spinnaker [API](https://www.spinnaker.io/reference/api/docs.html#api-Pipelinecontroller-getPipelineUsingGET).
 
  - `version`: A file containing the pipeline execution id.
+
+ API : `GET /pipelines/{id}`
 
 ### `out`: Triggers a pipeline
 
@@ -80,6 +84,8 @@ Triggers a Spinnaker pipeline.
         "version": CONTENTS_OF_RESOURCE_VERSION_FILE
     }
     ```
+
+API : `POST /pipelines/{application}/{pipelineNameOrId}`
 
 ## Example Pipelines
 
