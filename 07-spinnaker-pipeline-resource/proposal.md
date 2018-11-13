@@ -30,7 +30,7 @@ The pipeline execution `id` will be used as the version of the resource.
 
 Places the following files in the destination:
 
- - `metadata.json`: Contains the pipeline execution metadata returned from the Spinnaker [api](https://www.spinnaker.io/reference/api/docs.html#api-Pipelinecontroller-getPipelineUsingGET).
+ - `metadata.json`: Contains the pipeline execution metadata returned from the Spinnaker [API](https://www.spinnaker.io/reference/api/docs.html#api-Pipelinecontroller-getPipelineUsingGET).
 
  - `version`: A file containing the pipeline execution id.
 
@@ -109,6 +109,8 @@ jobs:
     params:
       trigger_params:
         build_id: (build ${BUILD_ID})
+      artifacts:
+        - some-other-resource/artifact.json
 ```
 
 ### Get
