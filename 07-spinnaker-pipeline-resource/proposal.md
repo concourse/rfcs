@@ -3,8 +3,8 @@
 Implementing a Spinnaker pipeline resource.  
 
 ## Features :
-   - Trigger a Spinnaker pipeline with optional artifacts from concourse.
-   - Trigger a concourse job based on the status of a Spinnaker pipeline.
+   - Trigger a Spinnaker pipeline with optional artifacts from Concourse.
+   - Trigger a Concourse job based on the status of a Spinnaker pipeline.
 
 The idea is build on an already existing [resource](https://github.com/burdzwastaken/concourse-spinnaker-resource).
 
