@@ -16,9 +16,7 @@ The idea is build on an already existing [resource](https://github.com/burdzwast
 - `skip_ssl_verification`: **TODO** make sure it is possible.
 - `client_x509_cert`: Client [certificate](https://www.spinnaker.io/setup/security/authentication/x509/) to authenticate with Spinnaker.
 - `client_x509_key`: Client [key](https://www.spinnaker.io/setup/security/authentication/x509/) to authenticate with Spinnaker.
-- `check_statuses`: *Optional* Array of Spinnaker pipeline execution statuses to check for new versions.
- Current Supported statuses by spinnaker: NOT_STARTED, RUNNING, PAUSED, SUSPENDED, SUCCEEDED, FAILED_CONTINUE, TERMINAL, CANCELED, REDIRECT, STOPPED, SKIPPED, BUFFERED 
-[reference](https://github.com/spinnaker/gate/blob/1cb00104f925e484d7a7a333bf07bd149adb0464/gate-web/src/main/groovy/com/netflix/spinnaker/gate/controllers/ExecutionsController.java#L82). If not supplied each execution will have a version regardless of the status.
+ `check_statuses`: *Optional* Array of Spinnaker pipeline execution statuses used to filter new versions during `check` stage. Currently supported statuses by Spinnaker: [NOT_STARTED, RUNNING, PAUSED, SUSPENDED, SUCCEEDED, FAILED_CONTINUE, TERMINAL, CANCELED, REDIRECT, STOPPED, SKIPPED, BUFFERED] - [Reference](https://github.com/spinnaker/gate/blob/1cb00104f925e484d7a7a333bf07bd149adb0464/gate-web/src/main/groovy/com/netflix/spinnaker/gate/controllers/ExecutionsController.java#L82). If not specified, each pipeline execution will yield a new version regardless.
 
 ## Behaviour
 
