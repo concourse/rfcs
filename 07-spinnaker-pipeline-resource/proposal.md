@@ -16,8 +16,11 @@ The idea is build on an already existing [resource](https://github.com/burdzwast
 - `skip_ssl_verification`: **TODO** make sure it is possible.
 - `client_x509_cert`: Client [certificate](https://www.spinnaker.io/setup/security/authentication/x509/) to authenticate with Spinnaker.
 - `client_x509_key`: Client [key](https://www.spinnaker.io/setup/security/authentication/x509/) to authenticate with Spinnaker.
-- `check_statuses`: *Optional* Array of Spinnaker pipeline execution statuses used to filter new versions during `check` stage. Currently supported statuses by Spinnaker: [NOT_STARTED, RUNNING, PAUSED, SUSPENDED, SUCCEEDED, FAILED_CONTINUE, TERMINAL, CANCELED, REDIRECT, STOPPED, SKIPPED, BUFFERED] - [Reference](https://github.com/spinnaker/gate/blob/1cb00104f925e484d7a7a333bf07bd149adb0464/gate-web/src/main/groovy/com/netflix/spinnaker/gate/controllers/ExecutionsController.java#L82). If not specified, each pipeline execution will yield a new version regardless.
-
+- `statuses`: *Optional* Array of Spinnaker pipeline execution statuses. Currently supported statuses by Spinnaker: [NOT_STARTED, RUNNING, PAUSED, SUSPENDED, SUCCEEDED, FAILED_CONTINUE, TERMINAL, CANCELED, REDIRECT, STOPPED, SKIPPED, BUFFERED] - [Reference](https://github.com/spinnaker/gate/blob/1cb00104f925e484d7a7a333bf07bd149adb0464/gate-web/src/main/groovy/com/netflix/spinnaker/gate/controllers/ExecutionsController.java#L82).
+   - `check` behavior: if specified, the status will be used to filter the pipeline execution statuses when detecting new versions.
+   - `put` behavior: if specified, the put step will block until the specified status(es) is reached.
+- `statuses_timeout`: *Optional* The amount of time after which the put step will timeout waiting for the `statuses`. Default value will be `30m`.
+    
 ## Behaviour
 
 ### `check`
@@ -43,8 +46,6 @@ Places the following files in the destination:
 Triggers a Spinnaker pipeline.
 
 #### Parameters
-- `required_status`: *Optional* A status that is required for the put step to succeed.
-- `required_status_timeout`: *Optional* The amount of time after which the put step will timeout waiting for the `required_status`. Default value will be `30m`.
 
 **NOTE:** Any [metadata](http://concourse.ci/implementing-resources.html#resource-metadata) in the parameters will be evaluated prior to triggering the pipeline. 
 
