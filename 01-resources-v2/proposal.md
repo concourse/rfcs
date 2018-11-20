@@ -14,7 +14,6 @@ Introduces a new resource interface with the following goals:
 
 * Extend the versioned artifacts interface to support deletion of versions.
 
-
 # Proposal
 
 ## General Types
@@ -62,43 +61,109 @@ type CheckRequest struct {
 }
 ```
 
-The first call will have an empty object as `from`.
+The `check` script responds by writing JSON objects ("events") to a file
+specified by `response_path`. Each JSON object has an `action` and a different
+set of fields based on the action.
 
-Any spaces discovered by the resource but not present in `from` should collect
-versions from the beginning.
+The following event types may be emitted by `check`:
 
-For each space in `from`, the resource should collect all versions that appear
-*after* the current version, including the given version if it's still present.
-If the given version is no longer present, the resource should instead collect
-from the beginning, as if the space was not specified.
+* `default_space`: Emitted when the resource has learned of a space which
+  should be considered the "default", e.g. the default branch of a `git` repo
+  or the latest version available for a semver'd resource.
 
-If any space in `from` is no longer present, the resource should ignore it, and
-not include it in the response.
+  Required fields for this event:
 
-The resource should determine a "default space", if any. Having a default
-space is useful for things like Git repos which have a default branch, or
-version spaces (e.g. `1.8`, `2.0`) which can point to the latest version line by
+  * `space`: The name of the space.
+
+* `discovered`: Emitted when a version is discovered for a given space. These
+  must be emitted in chronological order (relative to other `discovered` events
+  for the given space - other events may be intermixed).
+
+  Required fields for this event:
+
+  * `space`: The space the version is in.
+  * `version`: The version object.
+  * `metadata`: A list of JSON objects with `name` and `value`, shown to the
+    user.
+
+* `reset`: Emitted when a given space's "current version" is no longer present
+  (e.g. someone ran `git push -f`). This has the effect of marking all
+  currently-recorded versions of the space 'deleted', after which the resource
+  will emit any and all versions from the beginning, thus 'un-deleting'
+  anything that's actually still there.
+
+  Required fields for this event:
+
+  * `space`: The name of the space.
+
+The first request will have an empty object as `from`.
+
+Any spaces discovered by the resource but not present in `from` should emit
+versions from the very first version.
+
+For each space and associated version in `from`, the resource should emit all
+versions that appear *after* the given version (not including the given
+version).
+
+If a space or given version in `from` is no longer present (in the case of `git
+push -f` or branch deletion), the resource should emit a `reset` event for the
+space. If the space is still there, but the verion was gone, it should follow
+the `reset` event with all versions detected from the beginning, as if the
+`from` value was never specified.
+
+The resource should determine a "default space", if any. Having a default space
+is useful for things like Git repos which have a default branch, or version
+spaces (e.g. `1.8`, `2.0`) which can point to the latest version line by
 default. If there is no default space, the user must specify it explicitly in
-the pipeline, either by configuring one on the resource (`space: foo`) or on the
-`get` step (`spaces: [foo]`).
+the pipeline, either by configuring one on the resource (`default_space: foo`)
+or on every `get` step using the resource (`spaces: [foo]`).
 
-The command should first emit the default space (if any) and then stream the
-collected versions for each space. Streaming would enable resource authors to
-write versions as they find them rather than hold them all in memory and do one
-big JSON marshal. Each version will be written as individual JSON objects
-streamed to the response_path file. They will include the version, the space
-associated with that version, and the version's metadata. The response should
-look like the following within the file specified by response_path:
+#### example
 
-```JSON
-{"space":"a","version":{"v":"1"},"metadata":[{"Name":"status","Value":"pending"}]}
-{"space":"a","version":{"v":"2"},"metadata":[{"Name":"status","Value":"pending"}]}
-{"space":"a","version":{"v":"3"},"metadata":[{"Name":"status","Value":"pending"}]}
-{"space":"b","version":{"v":"1"},"metadata":[{"Name":"status","Value":"pending"}]}
-{"space":"b","version":{"v":"2"},"metadata":[{"Name":"status","Value":"pending"}]}
-{"space":"b","version":{"v":"3"},"metadata":[{"Name":"status","Value":"pending"}]}
-// ...
+Given the following request on `stdin`:
+
+```json
+{
+  "config": {
+    "uri": "https://github.com/concourse/concourse"
+  },
+  "from": {
+    "master": {"ref": "abc123"},
+    "feature/foo": {"ref":"def456"}
+    "feature/bar": {"ref":"987cia"}
+  },
+  "response_path": "/tmp/check-response.json"
+}
 ```
+
+If the `feature/foo` branch has new commits, `master` is the default branch and
+has no new commits, and `feature/bar` has been `push -f`ed, you may see
+something like the following in `/tmp/check-response.json`:
+
+```json
+{"action":"discovered","space":"feature/foo","version":{"ref":"abcdf8"},"metadata":[{"name":"message","value":"fix thing"}]}
+{"action":"reset","space":"feature/bar"}
+{"action":"discovered","space":"feature/bar","version":{"ref":"abcde0"},"metadata":[{"name":"message","value":"initial commit"}]}
+{"action":"discovered","space":"feature/bar","version":{"ref":"abcde1"},"metadata":[{"name":"message","value":"add readme"}]}
+{"action":"default_space","space":"master"}
+{"action":"discovered","space":"feature/foo","version":{"ref":"abcdf9"},"metadata":[{"name":"message","value":"fix thing even more"}]}
+{"action":"discovered","space":"feature/bar","version":{"ref":"abcde2"},"metadata":[{"name":"message","value":"finish the feature"}]}
+```
+
+A few things to note:
+
+* A `reset` event is emitted immediately upon detecting that the given version
+  for `feature/bar` (`987cia`) is no longer available, followed by a
+  `discovered` event for every commit going back to the initial commit on the
+  branch.
+
+* No versions are emitted for `master`, because it's already up to date
+  (`abc123` is the latest commit).
+
+* The versions detected for `feature/foo` may appear between events for
+  `feature/bar`, as they're for unrelated spaces. The order only matters within
+  the space.
+
 
 ### `get`: Fetch a version from the resource's space.
 
@@ -137,40 +202,99 @@ type PutRequest struct {
 The command will be invoked with all of the build plan's artifacts present in
 the working directory, each as `./(artifact name)`.
 
-The command should perform any and all side-effects idempotently, and then
-stream the following response to the file specified by `response_path`:
+The `put` script responds by writing JSON objects ("events") to a file
+specified by `response_path`, just like `check`. Each JSON object has an
+`action` and a different set of fields based on the action.
 
-```JSON
-{"type":"created","space":"a","version":{"v":"1"}}
-{"type":"created","space":"a","version":{"v":"2"}}
-{"type":"created","space":"a","version":{"v":"3"}}
-{"type":"created","space":"b","version":{"v":"1"}}
-{"type":"created","space":"b","version":{"v":"2"}}
-{"type":"deleted","space":"b","version":{"v":"3"}}
-// ...
-```
+Anything printed to `stdout` and `stderr` will propagate to the build logs.
 
-`put` allows new spaces to be generated dynamically (based on params
-and/or the bits in its working directory) and propagated to the rest of the
-pipeline.
+The following event types may be emitted by `put`:
 
-Note that a `put` may only affect one space at a time, otherwise it becomes
+* `created`: Emitted when the resource has created (perhaps idempotently) a
+  version. The version will be recorded as an output of the build.
+
+  Versions produced by `put` will *not* be directly inserted into the
+  resource's version history in the pipeline, as they were with v1 resources.
+  This enables one-off versions to be created and fetched within a build
+  without disrupting the normal detection of resource versions across the
+
+  Required fields for this event:
+
+  * `space`: The space the version is in.
+  * `version`: The version object.
+  * `metadata`: A list of JSON objects with `name` and `value`, shown to the
+    user. Note that this is return by both `put` and `check`, because there's a
+    chance that `put` produces a version that wouldn't normally be discovered
+    by `check`.
+
+* `deleted`: Emitted when a version has been deleted. The version record will
+  remain in the database for archival purposes, but it will no longer be a
+  candidate for any builds.
+
+  Required fields for this event:
+
+  * `space`: The space the version is in.
+  * `version`: The version object.
+
+Because the space is included on each event, `put` allows a new space to be
+generated dynamically (based on params and/or the bits in its working
+directory) and propagated to the rest of the pipeline. However it must take
+care to only affect one space at a time. Without this restriction it becomes
 difficult to express things like "`get` after `put`" to fetch the version that
 was created. If multiple spaces are returned, it's unclear which space the
 `get` would fetch from.
 
-Versions returned with `created` type will be recorded as outputs of the build.
-A `check` will then be performed to fill in the metadata and determine the
-ordering of the versions. Once the ordering is learned, the latest version will
-be fetched by the implicit `get`.
+#### the `get` after the `put`
 
-Versions returned with `deleted` type will be marked as deleted. They will
-remain in the database for archival purposes, but will no longer be input
-candidates for any builds, and can no longer be fetched. The implicit `get`
-after `deleted` puts should not happen so this will result in changes to that
-behavior.
+With v1 resources, every `put` implied a `get` of the version that was created.
+With v2 we will change that, so that the `get` is opt-in. This has been a
+long-time ask, and one objective reason to make it opt-in is that Concourse
+can't know ahead of time that there will even be anything to `get` - for
+example, the `put` could emit only `deleted` events.
 
-Anything printed to `stdout` and `stderr` will propagate to the build logs.
+So, to `get` the latest version that was produced by the `put`, you would
+configure something like:
+
+```yaml
+- put: my-resource
+  get: my-created-resource
+- task: use-my-created-resource
+```
+
+The value for the `get` field is the name of the artifact to save. When
+specified, the last version emitted will be fetched.
+
+This added flexibility enables resources to provide explicitly versioned
+'variants' of original versions without doubling up the version history. One
+use case for this is pull-requests: you may want a build to pull in one
+resource for the PR itself, another resource for the base branch of the
+upstream reap, and then `put` to produce a "combined" version of the two,
+representing the PR merged into the upstream repo:
+
+```yaml
+jobs:
+- name: run-pr
+  plan:
+  - get: concourse-pr  # pr: 123, ref: deadbeef
+    trigger: true
+  - get: concourse     # ref: abcdef
+  - put: concourse-pr
+    get: merged-pr
+    params:
+      merge_base: concourse
+      status: pending
+
+    # the `put` will learns base ref from `concourse` input and param, and emit
+    # a 'created' event with the following version:
+    #
+    #   pr: 123, ref: deadbeef, base: abcdef
+    #
+    # the `get` will then run with that version and knows to merge onto the
+    # given base ref
+
+  - task: unit
+    # uses 'merged-pr' as an input
+```
 
 
 # Examples
@@ -242,9 +366,9 @@ TODO:
 
 * Remove the distinction between `source` and `params`; resources will receive
   a single `config`. The distinction will remain in the pipeline. This makes it
-  easier to implement a resource without planning ahead for interesting dynamic
-  vs. static usage patterns, and this will become more powerful with
-  concourse/concourse#684.
+  easier to implement a resource without planning ahead for dynamic vs. static
+  usage patterns. This will become more powerful if concourse/concourse#684 is
+  implemented.
 
 * Change `check` to run against all spaces. It will be given a mapping of each
   space to its current latest version, and return the set of all spaces, along
@@ -254,18 +378,27 @@ TODO:
   efficiently perform the check. It also keeps the container overhead down to
   one per resource, rather than one per space.
 
-* Change `put` to emit a set of created versions, rather than just one.
+* Remove the implicit `get` after every `put`, now requiring the pipeline to
+  explicitly configure a `get` field on the same step. This is necessary now
+  that `put` can potentially perform an operation resulting solely in `deleted`
+  events, in which case there is nothing to fetch.
+
+  This has also been requested by users for quite a while, for the sake of
+  optimizing jobs that have no need for the implicit `get`.
+
+* Change `put` to emit a sequence of created versions, rather than just one.
 
   Technically the `git` resource may push many commits, so returning more than
   one version is necessary to track them all as outputs of a build. This could
   also support batch creation.
 
-  To ensure `check` is the source of truth for ordering, the versions returned
-  by `put` are not order dependent. A `check` will be performed to discover
-  them in the correct order, and then each version will be saved as an output
-  of the build. The latest version of the set will then be fetched.
+  To ensure `check` is the source of truth for ordering, the versions emitted
+  by `put` are not directly inserted into the database. Instead, they are
+  simply recorded as outputs of the build. The order does matter, however - if
+  a user configures a `get` on the `put` step, the last version emitted will be
+  fetched. For this reason they should be emitted in chronological order.
 
-* Change `put` to additionally return a set of *deleted* versions.
+* Change `put` to additionally return a sequence of *deleted* versions.
 
   There has long been a call for a batch `delete` or `destroy` action. Adding
   this to `put` alongside the set of created versions allows `put` to become a
@@ -275,11 +408,11 @@ TODO:
 * Change `get` to always run against a particular space, given by
   the request payload.
 
-* Change `check` to include metadata for each version. Change `get` and `put`
-  to no longer return it.
+* Change `check` to include metadata for each version. Change `get` to no
+  longer return it.
 
-  This way metadata is always immediately available, and only comes from one
-  place.
+  This way metadata is always immediately available, which could enable us to
+  have a richer UI for the version history page.
 
   The original thought was that metadata collection may be expensive, but so
   far we haven't seen that to be the case.
@@ -292,14 +425,19 @@ TODO:
   rather than taking the path as an argument. This was something people would
   trip up on when implementing a resource.
 
-* Change `put` to write its JSON response to a specified file, rather than
-  `stdout`, so that we don't have to be attached to process its response.
+* Change `check` and `put` to write its JSON response to a specified file,
+  rather than `stdout`, so that we don't have to be attached to process its
+  response.
 
   This is one of the few ways a build can error after the ATC reattaches
   (`unexpected end of JSON`). With it written to a file, we can just try to
   read the file when we re-attach after seeing that the process exited. This
-  also frees up stdout/stderr for normal logging, which has been an occasional
-  pitfall during resource development/debugging.
+  also frees up `stdout`/`stderr` for normal logging, which has been an
+  occasional pitfall during resource development/debugging.
+
+  Another motivation for this is safety: with `check` emitting a ton of data,
+  there is danger in Garden losing windows of the output due to a slow
+  consumer. Writing to a file circumvents this issue.
 
 
 # Answered(?) Questions
@@ -401,13 +539,5 @@ branch name, and that space could then be passed along.
 
 Now that we're going to be collecting all versions of every resource, we should
 be careful not to be scanning the entire table all the time, and even make an
-effort to share data when possible. For example, we may want to associate
-collected versions to a global resource config object, rather than saving them
-all per-pipeline-resource.
-
-Here are some optimizations we probably want to make:
-
-* `(db.Pipeline).GetLatestVersionedResource` is called every minute and scans
-  the table to find the latest version of a given resource. We should reduce
-  this to a simple join column from the resource to the latest version,
-  maintained every time we save new versions.
+effort to share data when possible. We have implemented this with
+https://github.com/concourse/concourse/issues/2386.
