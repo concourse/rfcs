@@ -129,7 +129,7 @@ Given the following request on `stdin`:
   },
   "from": {
     "master": {"ref": "abc123"},
-    "feature/foo": {"ref":"def456"}
+    "feature/foo": {"ref":"def456"},
     "feature/bar": {"ref":"987cia"}
   },
   "response_path": "/tmp/check-response.json"
@@ -263,38 +263,6 @@ configure something like:
 
 The value for the `get` field is the name of the artifact to save. When
 specified, the last version emitted will be fetched.
-
-This added flexibility enables resources to provide explicitly versioned
-'variants' of original versions without doubling up the version history. One
-use case for this is pull-requests: you may want a build to pull in one
-resource for the PR itself, another resource for the base branch of the
-upstream reap, and then `put` to produce a "combined" version of the two,
-representing the PR merged into the upstream repo:
-
-```yaml
-jobs:
-- name: run-pr
-  plan:
-  - get: concourse-pr  # pr: 123, ref: deadbeef
-    trigger: true
-  - get: concourse     # ref: abcdef
-  - put: concourse-pr
-    get: merged-pr
-    params:
-      merge_base: concourse
-      status: pending
-
-    # the `put` will learns base ref from `concourse` input and param, and emit
-    # a 'created' event with the following version:
-    #
-    #   pr: 123, ref: deadbeef, base: abcdef
-    #
-    # the `get` will then run with that version and knows to merge onto the
-    # given base ref
-
-  - task: unit
-    # uses 'merged-pr' as an input
-```
 
 
 # Examples
@@ -532,6 +500,40 @@ This can be done by representing each non-linear version in a separate space.
 For example, generated code could be pushed to a generated (but deterministic)
 branch name, and that space could then be passed along.
 
+## Build-local Versions
+
+Now that `put` doesn't directly modify the resource's version history, it can
+be used to provide explicitly versioned 'variants' of original versions without
+doubling up the version history. One use case for this is pull-requests: you
+may want a build to pull in one resource for the PR itself, another resource
+for the base branch of the upstream reap, and then `put` to produce a
+"combined" version of the two, representing the PR merged into the upstream
+repo:
+
+```yaml
+jobs:
+- name: run-pr
+  plan:
+  - get: concourse-pr  # pr: 123, ref: deadbeef
+    trigger: true
+  - get: concourse     # ref: abcdef
+  - put: concourse-pr
+    get: merged-pr
+    params:
+      merge_base: concourse
+      status: pending
+
+    # the `put` will learns base ref from `concourse` input and param, and emit
+    # a 'created' event with the following version:
+    #
+    #   pr: 123, ref: deadbeef, base: abcdef
+    #
+    # the `get` will then run with that version and knows to merge onto the
+    # given base ref
+
+  - task: unit
+    # uses 'merged-pr' as an input
+```
 
 # Implementation Notes
 
