@@ -154,6 +154,11 @@ stream the following response to the file specified by `response_path`:
 and/or the bits in its working directory) and propagated to the rest of the
 pipeline.
 
+Note that a `put` may only affect one space at a time, otherwise it becomes
+difficult to express things like "`get` after `put`" to fetch the version that
+was created. If multiple spaces are returned, it's unclear which space the
+`get` would fetch from.
+
 Versions returned with `created` type will be recorded as outputs of the build.
 A `check` will then be performed to fill in the metadata and determine the
 ordering of the versions. Once the ordering is learned, the latest version will
