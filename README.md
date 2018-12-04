@@ -20,17 +20,17 @@ than wrangling an ever-growing comment chain on a GitHub issue.
 1. Fork this repository.
 1. Copy the `000-example` RFC template, naming it something like
    `123-my-proposal`.
-  * Don't worry too much about the number; they don't have to be sequential.
-    You can try to predict your pull request number for example, and/or just
-    edit it after submitting.
+    * Don't worry too much about the number; they don't have to be sequential.
+      You can try to predict your pull request number for example, and/or just
+      edit it after submitting.
 1. Write your RFC in `proposal.md` under your RFC directory.
-    * Try to outline the motivation for the proposal first. A proposal with
-      no context is more likely to fall under scrutiny.
-    * Having a summary near the beginning of the proposal is also helpful.
-    * Take special care to think about any risks or drawbacks to your proposal
-      ahead-of-time. These have to be assessed at some point! If you're not
-      sure how to resolve them, leave them under an "open questions" section,
-      and we can all try to work through them together.
+      * Try to outline the motivation for the proposal first. A proposal with
+        no context is more likely to fall under scrutiny.
+      * Having a summary near the beginning of the proposal is also helpful.
+      * Take special care to think about any risks or drawbacks to your
+        proposal ahead-of-time. These have to be assessed at some point! If
+        you're not sure how to resolve them, leave them under an "open
+        questions" section, and we can all try to work through them together.
 1. Submit a pull request. Your proposal may include any dependent assets
    (example content, screenshots) under its RFC directory. For convenience,
    link to the rendered proposal in the pull request body, like so:
@@ -49,10 +49,10 @@ than wrangling an ever-growing comment chain on a GitHub issue.
    lines in the pull request and submitting reviews. This allows conversations
    to be marked "resolved" and prevents the comment history on the pull request
    from growing larger and larger.
-  * As the RFC author, feel free to leave your own comments/feedback, using the
-    pull request as a "captain's log" as you think about the problem more and
-    reach key decisions. The point of all this is to have a clear public record
-    for the decision-making process.
+    * As the RFC author, feel free to leave your own comments/feedback, using
+      the pull request as a "captain's log" as you think about the problem more
+      and reach key decisions. The point of all this is to have a clear public
+      record for the decision-making process.
 1. Amendments to the RFC should be made by pushing more commits to the RFC
    branch. **Please do not rebase and force-push over your own commits.**
    Instead, try to make meaningful commits that summarize their changes.
