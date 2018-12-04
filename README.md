@@ -1,21 +1,25 @@
 # Concourse RFCs
 
-> A process for collaborating on the design for substantial changes to Concourse.
+A process for collaborating on substantial changes to Concourse.
 
 
 ## What should be proposed as an RFC?
 
 RFCs should be opened for changes that have a substantial impact on Concourse
-users and developers. The RFC process enables us to collaborate during the
-design process, before we get to code and implementation.
-
-An important goal of this process is to keep a record of the decision-making
-process as a proposal evolves. This is done via the pull request review and
-commenting system. This allows discussions to be marked as "resolved", rather
-than wrangling an ever-growing comment chain on a GitHub issue.
+users and contributors. RFCs enable the community to collaborate during the
+architecture and feature design process, before getting to code and
+implementation.
 
 
-## RFC Process
+## Providing feedback to an RFC
+
+This process is centered around pull requests. Feedback and questions should be
+left as comments on specific lines of the pull request's proposal document, so
+that they can be marked as resolved. This is to avoid an ever-growing comment
+thread at the top level.
+
+
+## Submitting an RFC
 
 1. Fork this repository.
 1. Copy the `000-example` RFC template, naming it something like
