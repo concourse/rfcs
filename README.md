@@ -28,13 +28,17 @@ thread at the top level.
       You can try to predict your pull request number for example, and/or just
       edit it after submitting.
 1. Write your RFC in `proposal.md` under your RFC directory.
-      * Try to outline the motivation for the proposal first. A proposal with
-        no context is more likely to fall under scrutiny.
-      * Having a summary near the beginning of the proposal is also helpful.
-      * Take special care to think about any risks or drawbacks to your
-        proposal ahead-of-time. These have to be assessed at some point! If
-        you're not sure how to resolve them, leave them under an "open
-        questions" section, and we can all try to work through them together.
+      * Try to paint a clear mental picture of the motivation for the proposal
+        first. A proposal with no context is more likely to fall under
+        scrutiny.
+      * Having a summary near the beginning of the proposal is also helpful,
+        and if your proposal defines new terms, explicitly listing those
+        up-front is also a good idea.
+      * Take special care to think about any risks, side effects, or drawbacks
+        to your proposal ahead-of-time. These have to be assessed at some
+        point! If you're not sure how to resolve them, leave them under an
+        "open questions" section, and we can all try to work through them
+        together.
 1. Submit a pull request. Your proposal may include any dependent assets
    (example content, screenshots) under its RFC directory. For convenience,
    link to the rendered proposal in the pull request body, like so:
