@@ -10,13 +10,26 @@ users and contributors. RFCs enable the community to collaborate during the
 architecture and feature design process, before getting to code and
 implementation.
 
+An RFC may not be necessary for changes that are narrow enough in scope with
+limited impact to the rest of Concourse. If you feel that this is the case, you
+can cut straight to submitting a PR, though it's still a good idea to have an
+issue opened first to provide additional context. Do note however that pull
+requests and issues may be closed with a polite request to submit an RFC first.
+
+If you're not sure whether to open an RFC for a change you'd like to propose,
+feel free to discuss beforehand in [Discord](https://discord.gg/MeRxXKW) - just
+ping \code{@rfc-czars} or guauge interest in \code{#contributors}.
+
 
 ## Providing feedback to an RFC
 
 This process is centered around pull requests. Feedback and questions should be
 left as comments on specific lines of the pull request's proposal document, so
-that they can be marked as resolved. This is to avoid an ever-growing comment
-thread at the top level.
+that they can be marked as resolved. This is to avoid an ever-growing sequence
+of comments at the top level.
+
+Top-level comments and pull-request reviews are allowed for overarching
+commentary, but in general line-wise comments are preferred.
 
 
 ## Submitting an RFC
