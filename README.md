@@ -18,7 +18,7 @@ requests and issues may be closed with a polite request to submit an RFC first.
 
 If you're not sure whether to open an RFC for a change you'd like to propose,
 feel free to discuss beforehand in [Discord](https://discord.gg/MeRxXKW) - just
-ping \code{@rfc-czars} or guauge interest in \code{#contributors}.
+ping `@rfc-czars` or guauge interest in `#contributors`.
 
 
 ## Providing feedback to an RFC
