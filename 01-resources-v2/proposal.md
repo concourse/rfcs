@@ -234,7 +234,7 @@ No response is expected.
 Anything printed to `stdout` and `stderr` will propagate to the build logs.
 
 
-### `put`: Idempotently create or destroy resource versions in a space.
+### `put`: Idempotently create or destroy resource versions across spaces.
 
 The `put` command will be invoked with the following JSON structure on `stdin`:
 
@@ -282,33 +282,9 @@ The following event types may be emitted by `put`:
   * `space`: The space the version is in.
   * `version`: The version object.
 
-Because the space is included on each event, `put` allows a new space to be
-generated dynamically (based on params and/or the bits in its working
-directory) and propagated to the rest of the pipeline. However it must take
-care to only affect one space at a time. Without this restriction it becomes
-difficult to express things like "`get` after `put`" to fetch the version that
-was created. If multiple spaces are returned, it's unclear which space the
-`get` would fetch from.
-
-#### the `get` after the `put`
-
-With v1 resources, every `put` implied a `get` of the version that was created.
-With v2 we will change that, so that the `get` is opt-in. This has been a
-long-time ask, and one objective reason to make it opt-in is that Concourse
-can't know ahead of time that there will even be anything to `get` - for
-example, the `put` could emit only `deleted` events.
-
-So, to `get` the latest version that was produced by the `put`, you would
-configure something like:
-
-```yaml
-- put: my-resource
-  get: my-created-resource
-- task: use-my-created-resource
-```
-
-The value for the `get` field is the name of the artifact to save. When
-specified, the last version emitted will be fetched.
+Because the space is included on each event, `put` allows new spaces to be
+generated dynamically based on params and/or the bits in its working directory
+and propagated to the rest of the pipeline.
 
 
 # Examples
@@ -450,11 +426,123 @@ TODO:
   occasional pitfall during resource development/debugging.
 
   Another motivation for this is safety: with `check` emitting a ton of data,
-  there is danger in Garden losing windows of the output due to a slow
-  consumer. Writing to a file circumvents this issue.
+  there is danger in Garden losing chunks of the output due to a slow consumer.
+  Writing to a file circumvents this issue.
 
 
-# Answered(?) Questions
+# New Implications
+
+## The `get` after the `put` in Concourse pipelines
+
+With v1 resources, every `put` in a Concourse pipeline implied a `get` of the
+version that was created. With v2, the `get` will be made opt-in. This has been
+a long-time ask, and one objective reason to make it opt-in is that Concourse
+can't know ahead of time that there will even be anything to `get` - for
+example, the `put` could emit only `deleted` events.
+
+So, to `get` the latest version that was produced by the `put`, you would
+configure something like:
+
+```yaml
+- put: my-resource
+  get: my-created-resource
+- task: use-my-created-resource
+```
+
+The value for the `get` field is the name under which the artifact will be
+saved (just like `get` steps). When specified, the last version emitted will be
+fetched (from whichever space it was in).
+
+## Single-state resources
+
+Resources that really only have a "current state", such as deployments, can now
+represent their state more clearly because old versions that are no longer
+there will be marked 'deleted'.
+
+## Non-linearly versioned artifact storage
+
+This can be done by representing each non-linear version in a separate space.
+For example, generated code could be pushed to a generated (but deterministic)
+branch name, and that space could then be passed along.
+
+## Build-local Versions
+
+Now that `put` doesn't directly modify the resource's version history, it can
+be used to provide explicitly versioned 'variants' of original versions without
+doubling up the version history. One use case for this is pull-requests: you
+may want a build to pull in one resource for the PR itself, another resource
+for the base branch of the upstream reap, and then `put` to produce a
+"combined" version of the two, representing the PR merged into the upstream
+repo:
+
+```yaml
+jobs:
+- name: run-pr
+  plan:
+  - get: concourse-pr  # pr: 123, ref: deadbeef
+    trigger: true
+  - get: concourse     # ref: abcdef
+  - put: concourse-pr
+    get: merged-pr
+    params:
+      merge_base: concourse
+      status: pending
+
+    # the `put` will learns base ref from `concourse` input and param, and emit
+    # a 'created' event with the following version:
+    #
+    #   pr: 123, ref: deadbeef, base: abcdef
+    #
+    # the `get` will then run with that version and knows to merge onto the
+    # given base ref
+
+  - task: unit
+    # uses 'merged-pr' as an input
+```
+
+
+# Open Questions
+
+## Are there examples of `put`ing to multiple spaces at once?
+
+Initially there was a limitation that `put` could only emit versions pertaining
+to a single space. This was to prevent ambiguity with "`get` after `put`" -
+which space would the `get` fetch from? We loosened this constraint because it
+felt somewhat arbitrary, as the protocol allows it easily, and recording
+outputs and marking versions as deleted across spaces isn't any harder than
+with a single space.
+
+To loosen the constraint we've instead constrained the `get` to only fetch the
+last version, from whichever space it was in. But are there any good examples
+of this being useful, or have we just moved the arbitrary restriction
+elsewhere? (At least we've moved it out of the resource interface - technically
+this is a pipeline concern, not a resource interface concern.)
+
+Would users want to fetch multiple spaces that were created? Would they want to
+do this statically (at pipeline definition time) or dynamically (at runtime)?
+Static would be relatively easily as the build plan would just result in
+multiple `get` steps, but dynamic would run into the same challenges as with
+[dynamic build plan
+generation](https://github.com/concourse/concourse/issues/684). However users
+could always just separate it into a different job spanning the spaces
+dynamically with wildcards.
+
+Here's a mockup for static configuration:
+
+```yaml
+- put: foo
+  params: bar
+  get: {artifact-name-a: space-a, artifact-name-b: space-b}
+```
+
+...but is that useful?
+
+This is really in need of a use case to define it further, but for now the
+constraint has been lifted from the resource interface, and it's up to the rest
+of Concourse's pipeline mechanics to determine what's possible from there.
+
+
+# Answered Questions
 
 <details><summary>Can we reduce the `check` overhead?</summary>
 
@@ -527,59 +615,6 @@ versions. It'll return multiple spaces and versions created/deleted for them.
 </p>
 </details>
 
-
-# New Implications
-
-Here are a few use cases that resources were sometimes used for inappropriately:
-
-## Single-state resources
-
-Resources that really only have a "current state", such as deployments. This is
-still "change over time", but the difference is that old versions become
-invalid as soon as there's a new one. This can now be made more clear by
-marking the old versions as "deleted", either proactively via `put` or by
-`check` discovering the new version.
-
-## Non-linearly versioned artifact storage
-
-This can be done by representing each non-linear version in a separate space.
-For example, generated code could be pushed to a generated (but deterministic)
-branch name, and that space could then be passed along.
-
-## Build-local Versions
-
-Now that `put` doesn't directly modify the resource's version history, it can
-be used to provide explicitly versioned 'variants' of original versions without
-doubling up the version history. One use case for this is pull-requests: you
-may want a build to pull in one resource for the PR itself, another resource
-for the base branch of the upstream reap, and then `put` to produce a
-"combined" version of the two, representing the PR merged into the upstream
-repo:
-
-```yaml
-jobs:
-- name: run-pr
-  plan:
-  - get: concourse-pr  # pr: 123, ref: deadbeef
-    trigger: true
-  - get: concourse     # ref: abcdef
-  - put: concourse-pr
-    get: merged-pr
-    params:
-      merge_base: concourse
-      status: pending
-
-    # the `put` will learns base ref from `concourse` input and param, and emit
-    # a 'created' event with the following version:
-    #
-    #   pr: 123, ref: deadbeef, base: abcdef
-    #
-    # the `get` will then run with that version and knows to merge onto the
-    # given base ref
-
-  - task: unit
-    # uses 'merged-pr' as an input
-```
 
 # Implementation Notes
 
