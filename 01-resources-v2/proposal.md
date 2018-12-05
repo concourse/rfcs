@@ -1,20 +1,66 @@
 # Summary
 
-Introduces a new resource interface with the following goals:
+This RFC proposes a new resource interface to replace the existing resource
+interface.
 
-* Introduce versioning to the resource interface, so that we can maintain
-  backwards-compatibility.
+As part of this proposal, the interface will now be versioned, starting at 2.0.
+Today's resource interface (documented
+[here](https://github.com/concourse/docs/blob/b9d291e5a821046b8a5de48c50b5ccba5a977493/lit/reference/resource-types/implementing.lit))
+will be called version 1, even though it was never really versioned.
 
-* Support for spaces (concourse/concourse#1707).
+The introduction of this new interface will be gradual, allowing Concourse
+users to use a mix of v1 and v2 resources throughout their pipelines. While the
+new interface is defined in terms of entirely new concepts like
+[spaces](https://github.com/concourse/concourse/issues/1707), v1 resources will
+be silently 'adapted' to v2 automatically.
 
-* Introduce a more airtight "versioned artifacts" interface, tightening up
-  loopholes in today's resource API to ensure that resources are pointing at an
-  external source of truth, so that we can explicitly design for new features
-  and workflows rather than forcing everything into the resource interface.
 
-* Extend the versioned artifacts interface to support deletion of versions.
+# Motivation
+
+* Support for multi-branch workflows and build matrixes:
+    * https://github.com/concourse/concourse/issues/1172
+    * https://github.com/concourse/concourse/issues/1707
+
+* Support for creating new branches dynamically (as spaces):
+    * https://github.com/concourse/git-resource/pull/172
+
+* Support for creating multiple versions at once:
+    * https://github.com/concourse/concourse/issues/535
+    * https://github.com/concourse/concourse/issues/2660
+
+* Support for deleting versions:
+    * https://github.com/concourse/concourse/issues/362
+
+* Having resource metadata immediately available via `check`:
+    * https://github.com/concourse/git-resource/issues/193
+
+* Unifying `source` and `params` as just `config` so that resources don't have
+  to care where configuration is being set in pipelines:
+    * https://github.com/concourse/concourse/issues/310
+
+* Improving stability of reattaching to builds by reading resource responses
+  from files instead of `stdout`:
+    * https://github.com/concourse/concourse/issues/1580
+
+* Ensuring resource version history is always correct and up-to-date, enabling
+  it to be [deduped](https://github.com/concourse/concourse/issues/2386) and
+  removing the need for [purging
+  history](https://github.com/concourse/concourse/issues/145) and
+  [removing/renaming
+  resources](https://github.com/concourse/concourse/issues/372).
+
+* Closing gaps in the resource interface that turned them into a "local maxima"
+  and resulted in their being used in somewhat cumbersome ways (notifications,
+  partially-implemented resources, etc.)
+
 
 # Proposal
+
+* TODO: document 'info'
+* TODO: make metadata more flexible?
+    * https://github.com/concourse/concourse/issues/310
+    * https://github.com/concourse/concourse/issues/2900
+
 
 ## General Types
 
