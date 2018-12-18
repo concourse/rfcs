@@ -14,6 +14,9 @@ We'll try to answer a few questions about how this might work. Specifically:
 
 # Proposal
 
+NOTE: We've followed up with a ✅ beside each of the options that we've chosen below.
+
+
 ## What roles do we need?
 
 `admin` - Granted if you are part of an admin team. Currently only the `main` team is an admin team.
