@@ -1,6 +1,10 @@
 # Summary
 
-Introduces a proposal for RBAC. Specifically:
+This proposal is meant to start a discussion about Role Based Access Control (or RBAC for short). A number of users have been asking for ways to restrict the permissions given to various users in the system, so this will be an attempt to outline what these restrictions might look like, and how they might work.
+
+One of the main drawbacks of implementing RBAC is that there can be performance implications. These typically come about when we need to make expensive queries to determine wether or not a user can perform the intended action. This isn't a good enough reason not to implement such checks, but we should be mindful of the potential consequences.
+
+We'll try to answer a few questions about how this might work. Specifically:
 
 - What roles do we need?
 - How would fly set-team work?
@@ -57,7 +61,7 @@ roles:
 
 or this:
 
-### Option 2 - roles map
+### ✅ Option 2 - roles map
 
 ```yaml
 roles: 
@@ -164,7 +168,7 @@ Maybe we want something a bit more structure to make changes easier down the roa
 
 The main disadvantage here is that it starts to bloat the size of our token. 
 
-Or a slimmed down alternative:
+### ✅ Option 3 - A slimmed down alternative:
 
 ```
 {
