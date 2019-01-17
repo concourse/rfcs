@@ -14,8 +14,6 @@ We'll try to answer a few questions about how this might work. Specifically:
 
 # Proposal
 
-NOTE: We've followed up with a ✅ beside each of the options that we've chosen below.
-
 
 ## What roles do we need?
 
@@ -42,29 +40,10 @@ This will assign the `owner` role to the specified users and groups. If you want
 fly -t mytarget set-team -n myteam -c /tmp/team-config
 ```
 
-Where `/tmp/team-config` might look something like:
+Where `/tmp/team-config` will look something like:
 
-### Option 1 - roles array
 
-```yaml
-roles: 
-- name: owner
-  local: 
-    users: ["some-admin"]
-- name: member
-  github: 
-    users: ["my-github-login"]
-    teams: ["my-org:my-github-team"]
-  cf: 
-    users: ["myusername"]
-    spaces: ["myorg:myspace"]
-- name: viewer
-  allow_all_users: true
-```
-
-or this:
-
-### ✅ Option 2 - roles map
+### Team roles config
 
 ```yaml
 roles: 
@@ -82,7 +61,6 @@ roles:
     allow_all_users: true
 ```
 
-Or something else?
 
 
 ##  How do roles get persisted in the database?
@@ -132,46 +110,7 @@ When a user logs into Concourse, we encode all their team memberships into their
 
 The API uses this information to determine wether or not the request is authorized. It won't allow requests on a team's resource if the user isn't a member of that team.
 
-
-### Option 1 - team:role tuples
-If we wanted to introduce roles we could simply encode them into the token as follows:
-```
-{
-	"is_admin": true,
-	"teams": ["team1:viewer", "team2:member"],
-}
-```
-The API could then look at the user's `team_roles` and determine wether or not to permit the given operation. 
-
-Because a user can meet more than one auth criteria configured for a team, they may end up with the same team with multiple roles in their token:
-```
-{
-	"is_admin": true,
-	"teams": ["team1:viewer", "team2:viewer", "team2:member"],
-	...
-}
-```
-
-This is fine. The API will just cycle through the roles until it finds the one it cares about. 
-
-### Option 2 - Something a bit more structured
-
-Maybe we want something a bit more structure to make changes easier down the road.
-
-```
-{
-	"is_admin": true,
-	"teams": [
-	  {"name": "team1", "roles": ["viewer"]},
-	  {"name": "team2", "roles": ["viewer", "member"]}
-	],
-	...
-}
-```
-
-The main disadvantage here is that it starts to bloat the size of our token. 
-
-### ✅ Option 3 - A slimmed down alternative:
+Now that we have roles we're goign to map the team to a list of roles as follows:
 
 ```
 {
