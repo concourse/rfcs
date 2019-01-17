@@ -58,7 +58,8 @@ roles:
       users: ["myusername"]
       spaces: ["myorg:myspace"]
   viewer:
-    allow_all_users: true
+    local:
+      users: ["read-only-user"]
 ```
 
 
@@ -112,6 +113,8 @@ The API uses this information to determine wether or not the request is authoriz
 
 Now that we have roles we're goign to map the team to a list of roles as follows:
 
+
+### Roles stored in token
 ```
 {
 	"is_admin": true,
