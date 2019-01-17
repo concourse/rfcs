@@ -1,49 +1,70 @@
 # Summary
 
-This proposal is meant to start a discussion about Role Based Access Control (or RBAC for short). A number of users have been asking for ways to restrict the permissions given to various users in the system, so this will be an attempt to outline what these restrictions might look like, and how they might work.
+This proposal outlines the beginnings of support for Role Based Access Control
+(or RBAC for short).
 
-One of the main drawbacks of implementing RBAC is that there can be performance implications. These typically come about when we need to make expensive queries to determine wether or not a user can perform the intended action. This isn't a good enough reason not to implement such checks, but we should be mindful of the potential consequences.
 
-We'll try to answer a few questions about how this might work. Specifically:
+# Motivation
 
-- What roles do we need?
-- How would fly set-team work?
-- How do roles get persisted in the database?
-- How are roles handled by the API?
+A number of users have been asking for ways to restrict the permissions given
+to various users in the system, so this will be an attempt to outline what
+these restrictions might look like, and how they might work.
+
+There are various GitHub issues around this whole problem space, namely:
+
+* [#1317](https://github.com/concourse/concourse/issues/1317) (the 'organizing'
+  issue for RBAC)
+* [#769](https://github.com/concourse/concourse/issues/769) and
+  [#970](https://github.com/concourse/concourse/issues/970) for exposing
+  read-only access for a pipeline to another team
+
+The scope of RBAC is quite large and there are likely many different
+configurations that users will want. This proposal is just a start.
 
 
 # Proposal
 
+This proposal introduces the concept of a **role**. A role is a name associated
+to authentication requirements - for example, a `viewer` role might permit an
+entire organization, while a `owner` role might be specific to an individual
+user.
 
-## What roles do we need?
+Each team will now support the following roles:
 
-`admin` - Granted if you are part of an admin team. Currently only the `main` team is an admin team.
+* `owner`: Has read/write access to the team's resources, and can make admin
+  changes to the team itself (`set-team`, `rename-team`, etc). This is
+  effectively the permissions granted to all team-members prior to this
+  proposal, and all teams will have their existing configuration migrated to
+  this role upon upgrading.
 
-`owner` - Granted during `fly set-team`. Has read/write access to all the team's resources, as well as admin priviledges for the team itself (`set-team`, `rename-team`, etc).
+* `member`: Has read/write access to the team's resources.
 
-`member` - Granted during `fly set-team`. Has read/write access to all the team's resources.
+* `viewer`: Has read-only access to the team's resources.
 
-`viewer` - Granted during `fly set-team`. Has readonly access to all the team's resources.
+For now, these roles are hard-coded into Concourse and are completely static.
+Dynamic role management is out-of-scope of this proposal.
 
 
-## How would fly set-team work?
+## How are roles configured?
 
-Fly set-team should work the same as before:
-```bash
-fly -t mytarget set-team -n myteam --allow-all-users
-fly -t mytarget set-team -n myotherteam --github-user pivotal-jwinters --github-team myorg:myteam
+Currently, each team has a single authentication configuration, configured via
+`fly set-team`.
+
+With this proposal, `fly set-team` will continue to function as-is with the
+difference that it will now be configuring the `owner` role. This is to remain
+backwards-compatible for users that do not need RBAC functionality.
+
+To configure other roles, a configuration file must be used and passed as the
+`--config` (or `-c`) flag instead. This file contains the configuration for all
+roles.
+
+For example:
+
+```sh
+fly -t my-target set-team -n my-team -c config.yml
 ```
 
-This will assign the `owner` role to the specified users and groups. If you want more control over which roles get assigned, you can provide a config file with the mappings.
-
-```bash
-fly -t mytarget set-team -n myteam -c /tmp/team-config
-```
-
-Where `/tmp/team-config` will look something like:
-
-
-### Team roles config
+...with a `config.yml` as follows:
 
 ```yaml
 roles: 
@@ -63,66 +84,158 @@ roles:
 ```
 
 
+## How do roles get persisted in the database?
 
-##  How do roles get persisted in the database?
+The configuration for a team's authentication is currently stored in the
+database as a JSON object containing the Dex users and groups that are
+permitted access. For example, a team permitting the 'Developers' team in the
+`concourse` GitHub organization and `pivotal-jwinters` GitHub user would look
+something like this:
 
-To allow all users, we store team auth like the following:
 ```json
 {
-	"groups": [],
-	"users": []
+  "groups": ["github:concourse:Developers"],
+  "users": ["github:pivotal-jwinters"]
 }
 ```
 
-Or, if users need to belong to a specific github team:
+With roles, this configuration simply becomes nested under each role.
+
+For example, a configuration that preserves the above configuration for the
+`owner` role but has a `viewer` role allowing anyone in the `concourse` GitHub
+organization would look like this:
+
 ```json
 {
-	"groups": ["github:myorg:myteam"],
-	"users": ["github:pivotal-jwinters"]
+  "viewer": {
+    "groups": ["github:concourse"],
+    "users": []
+  },
+  "owner": {
+    "groups": ["github:concourse"],
+    "users": ["github:pivotal-jwinters"]
+  }
 }
 ```
 
-We could store `member`, `viewer` info separately:
+The `up` migration will move the existing configuration under a `"owner"` key
+for backwards-compatibility. To configure other roles or modify the owner role,
+this can be changed as normal by using `fly set-team` with a config file as
+described above.
+
+
+## How are roles handled by the API?
+
+Currently, when a user logs in Concourse uses each team's auth config to
+determine whether the user has access to each team. These teams are then stored
+as a claim in the user's token, looking something like this:
+
 ```json
 {
-	"viewer": {
-		"groups": [],
-		"users": []
-	},
-	"member": {
-		"groups": ["github:myorg:myteam"],
-		"users": ["github:pivotal-jwinters"]
-	}
+  "teams": ["team1", "team2"]
 }
 ```
 
-The above would allow all users to view, while only those on a specific github team to manage the team's resources.
+With this proposal, this approach changes slightly to instead check against the
+auth config of each team's *roles*. Any roles matching the user are then stored
+in the token associated to the team in a map, like so:
 
-
-##  How are roles handled by the API?
-
-When a user logs into Concourse, we encode all their team memberships into their token, as well as wether or not they belong to any admin teams. The two fields we care about look like this:
-```
+```json
 {
-	"is_admin": true,
-	"teams": ["team1", "team2"],
+  "teams": {
+    "team1": ["owner"],
+    "team2": ["member", "viewer"]
+  }
 }
 ```
 
-The API uses this information to determine wether or not the request is authorized. It won't allow requests on a team's resource if the user isn't a member of that team.
+Concourse's API endpoints will each be modified to require one of the three
+roles for the team.
 
-Now that we have roles we're goign to map the team to a list of roles as follows:
+The proposed endpoint-to-role mapping is as follows:
 
-
-### Roles stored in token
-```
-{
-	"is_admin": true,
-	"teams": {
-	  "team1": ["viewer"],
-	  "team2": ["viewer", "member"]
-	},
-	...
+```go
+var requiredRoles = map[string]string{
+  atc.SaveConfig:                    "member",
+  atc.GetConfig:                     "viewer",
+  atc.GetBuild:                      "viewer",
+  atc.GetBuildPlan:                  "viewer",
+  atc.CreateBuild:                   "member",
+  atc.ListBuilds:                    "viewer",
+  atc.BuildEvents:                   "viewer",
+  atc.BuildResources:                "viewer",
+  atc.AbortBuild:                    "member",
+  atc.GetBuildPreparation:           "viewer",
+  atc.GetJob:                        "viewer",
+  atc.CreateJobBuild:                "member",
+  atc.ListAllJobs:                   "viewer",
+  atc.ListJobs:                      "viewer",
+  atc.ListJobBuilds:                 "viewer",
+  atc.ListJobInputs:                 "viewer",
+  atc.GetJobBuild:                   "viewer",
+  atc.PauseJob:                      "member",
+  atc.UnpauseJob:                    "member",
+  atc.GetVersionsDB:                 "viewer",
+  atc.JobBadge:                      "viewer",
+  atc.MainJobBadge:                  "viewer",
+  atc.ClearTaskCache:                "member",
+  atc.ListAllResources:              "viewer",
+  atc.ListResources:                 "viewer",
+  atc.ListResourceTypes:             "viewer",
+  atc.GetResource:                   "viewer",
+  atc.PauseResource:                 "member",
+  atc.UnpauseResource:               "member",
+  atc.UnpinResource:                 "member",
+  atc.CheckResource:                 "member",
+  atc.CheckResourceWebHook:          "member",
+  atc.CheckResourceType:             "member",
+  atc.ListResourceVersions:          "viewer",
+  atc.GetResourceVersion:            "viewer",
+  atc.EnableResourceVersion:         "member",
+  atc.DisableResourceVersion:        "member",
+  atc.PinResourceVersion:            "member",
+  atc.ListBuildsWithVersionAsInput:  "viewer",
+  atc.ListBuildsWithVersionAsOutput: "viewer",
+  atc.GetResourceCausality:          "viewer",
+  atc.ListAllPipelines:              "viewer",
+  atc.ListPipelines:                 "viewer",
+  atc.GetPipeline:                   "viewer",
+  atc.DeletePipeline:                "member",
+  atc.OrderPipelines:                "member",
+  atc.PausePipeline:                 "member",
+  atc.UnpausePipeline:               "member",
+  atc.ExposePipeline:                "member",
+  atc.HidePipeline:                  "member",
+  atc.RenamePipeline:                "member",
+  atc.ListPipelineBuilds:            "viewer",
+  atc.CreatePipelineBuild:           "member",
+  atc.PipelineBadge:                 "viewer",
+  atc.RegisterWorker:                "member",
+  atc.LandWorker:                    "member",
+  atc.RetireWorker:                  "member",
+  atc.PruneWorker:                   "member",
+  atc.HeartbeatWorker:               "member",
+  atc.ListWorkers:                   "viewer",
+  atc.DeleteWorker:                  "member",
+  atc.SetLogLevel:                   "member",
+  atc.GetLogLevel:                   "viewer",
+  atc.DownloadCLI:                   "viewer",
+  atc.GetInfo:                       "viewer",
+  atc.GetInfoCreds:                  "viewer",
+  atc.ListContainers:                "viewer",
+  atc.GetContainer:                  "viewer",
+  atc.HijackContainer:               "member",
+  atc.ListDestroyingContainers:      "viewer",
+  atc.ReportWorkerContainers:        "member",
+  atc.ListVolumes:                   "viewer",
+  atc.ListDestroyingVolumes:         "viewer",
+  atc.ReportWorkerVolumes:           "member",
+  atc.ListTeams:                     "viewer",
+  atc.SetTeam:                       "owner",
+  atc.RenameTeam:                    "owner",
+  atc.DestroyTeam:                   "owner",
+  atc.ListTeamBuilds:                "viewer",
+  atc.SendInputToBuildPlan:          "member",
+  atc.ReadOutputFromBuildPlan:       "member",
 }
 ```
-
