@@ -25,11 +25,9 @@ configurations that users will want. This proposal is just a start.
 # Proposal
 
 This proposal introduces the concept of a **role**. A role is a name associated
-to authentication requirements - for example, a `viewer` role might permit an
-entire organization, while a `owner` role might be specific to an individual
-user.
+to its authentication requirements.
 
-Each team will now support the following roles:
+Each team will support the following roles:
 
 * `owner`: Has read/write access to the team's resources, and can make admin
   changes to the team itself (`set-team`, `rename-team`, etc). This is
