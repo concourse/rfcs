@@ -86,12 +86,23 @@ Currently we access information this in [many](https://github.com/concourse/conc
 We could build up a unified function which wraps up all the muddy abstractions leveraged by Core and build up cleaner boundaries between Core and "the executor of things given a set of artifacts".
 
 ```go
-func Execute(image ImageSpec*, run RunSpec*, ???, artifacts []Artifact) Result
+func Execute(run RunSpec, artifacts []Artifact) Result
+
+type Artifact struct {
+   ArtifactType string
+   Path string
+}
+
+type RunSpec struct {
+   Image Artifact
+   Path string
+   Args []string
+   Env []string
+}
+
 ```
 
-\* image could also be represented as an `Artifact`
-\* RunSpec could contain the state of the process to run, env vars, etc.
-
+* RunSpec is basically https://github.com/cloudfoundry/garden/blob/master/container.go#L136-L172 with a few less fields; we already know we want to BindMount the `Artifact`s, and `Image` will be an `Artifact` of type `"image"`
 
 ## Runtime's State
 
