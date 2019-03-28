@@ -59,15 +59,19 @@ Volumes' lifecycle outside of a pod / deployment ?
 https://github.com/tektoncd
 
 ## Unit of Execution
- 
+Tekton consists of two main abstractions; `Task` or `Pipeline` - each with an eqiovalent
+`*Run` resource representing their execution.
 
+We'll need to determine how we should best use the `Task` or `Pipeline`
+resources to schedule Concourse workloads. `Task`s seem like they might be a
+decent abstraction for execution of a build step, although they do also support
+multiple, sequential steps, so they could map to `Builds` from Concourse.
 
 ## Image Support
 From https://github.com/tektoncd/pipeline/issues/639 it seems like image building is taking
 some precident in Tekton to allow users to build an image and use it for a later Task.
 
 ## Volume Caching
-
 https://github.com/tektoncd/pipeline/blob/master/docs/developers/README.md#how-are-resources-shared-between-tasks
 
 `PipelineRun` supports using a [Persistent Volume
