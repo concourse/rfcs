@@ -54,6 +54,23 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 
 # Proposal
 
+## Glossary
+
+* **Config**: an arbitrarily nested JSON object containing user-provided configuration
+    * Examples: `{"uri":"https://github.com/concourse/concourse"}`, `{"interval":"10m"}`
+* **Config fragment**: a smaller JSON object intended to be spliced into a **Config**
+    * Examples: `{"ref":"abcdef"}`, `{"branch":"develop"}`
+* **Bits**: a directory containing arbitrary data
+    * Examples: source code, compiled artifacts, etc.
+* **Metadata**: structured data associated to a **config fragment** containing information about the fragment that should be surfaced to the user
+    * Examples: `[{"name":"committer","value":"Alex Suraci"}]`
+* **Resource**: any entity which supports the following verbs:
+    * `check`: given a **config**, emit **config fragments**
+    * `get`: given a **config**, populate a directory with **bits**
+    * `put`: given a **config** and a directory containing **bits**, create or delete **config fragments**
+
+
+
 * unify `source` and `params` into single `config`
 * replace `version` with "config fragments" so that the interface isn't biased towards "versioned artifacts" and instead re-configures itself.
     * "config fragments" get merged into `config`
@@ -66,13 +83,14 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 
 # Open Questions
 
-* metadata structure?
-    * enrich metadata?: https://github.com/concourse/concourse/issues/310
-* TLS?
+* enrich metadata?
+    * https://github.com/concourse/concourse/issues/310
+* standardize TLS config?
     * https://github.com/concourse/rfcs/issues/9
 * webhooks?
     * should these instead be something supported by *Concourse*?
 * icons?
+    * https://github.com/concourse/concourse/issues/788
     * https://github.com/concourse/concourse/pull/3220
     * https://github.com/concourse/concourse/pull/3581
     * can this come from `/info`? would it need `config` passed to it?
