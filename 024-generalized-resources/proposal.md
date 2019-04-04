@@ -110,6 +110,75 @@ source:
   interval: 10m
 ```
 
+
+## Interface Definition
+
+### `info`: discover resource type implementation info
+
+Concourse will first invoke `./info` to discover the commands to run for each resource action.
+
+### Request
+
+The `info` script will be given the resource's `config` on `stdin` so that it may interpret any fields necessary to formulate the response payload.
+
+```go
+type InfoRequest struct {
+    // User-specified configuration.
+    Config Config `json:"config"`
+}
+```
+
+### Response
+
+The `info` script must emit the following response on `stdout`:
+
+```go
+type InfoResponse struct {
+    // The version of the resource interface that this resource type conforms to.
+    InterfaceVersion string `json:"interface_version"`
+
+    // An optional icon name to show to the user when viewing the resource.
+    Icon string `json:"icon,omitempty"`
+
+    // Command to run when performing check actions.
+    Check string `json:"check"`
+
+    // Command to run when performing get actions.
+    Get string `json:"get"`
+
+    // Command to run when performing put actions.
+    Put string `json:"put"`
+}
+```
+
+The value of the `icon` field is a short string corresponding to an icon in Concourse's icon set (currently [Material Design Icons](https://materialdesignicons.com)).
+
+### `check`: monitor a config to discover config fragments
+
+### `get`: fetch bits for a given config
+
+### `put`: use bits to perform side-effects corresponding to config fragments
+
+## Artifact resources with v2
+
+Today's v1 resources are effectively "versioned artifact resources", as that is the only way Concourse pipelines support using them.
+
+With the v2 interface being more general, it makes no mention of versions and is less coupled to a notion of 'versioned artifacts'. In order for today's workflows to transition to v2 resources, we need to define how the general interface is interpreted by Concourse pipelines:
+
+* Firstly, all **config fragments** are interpreted as **versions** for artifact resources.
+
+* The `check` action will first be run with a "naked" config, containing only what the user specified. In this situation `check` must return *all* versions discovered in the config, in chronological order.
+
+* Subsequent calls to `check` will be given a config that has been spliced with the last emitted version. The `check` script must emit any versions that came after the specified version.
+  * If the specified version is no longer present, the `check` action must emit a `reset` event and then return *all* versions, as if the version was not specified in the first place.
+
+* The `get` action will always be invoked with a spliced config specifying which version to fetch.
+  * A `fetched` event must be emitted for all versions that have been fetched into the **bits** directory. Each version will be recorded as an input to the build.
+
+* The `put` action will be invoked with user-provided configuration.
+  * A `created` event must be emitted for all versions that have been created by the `put` action. These will be recorded as outputs of the build.
+  * A `deleted` event must be emitted for all versions that have been deleted by the `put` action. These versions will be marked "deleted" and no longer be available for use in other builds.
+
 ## Open Questions
 
 * enrich metadata?
