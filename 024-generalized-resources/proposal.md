@@ -113,7 +113,7 @@ source:
 
 ### `info`: discover resource type implementation info
 
-Concourse will first invoke `./info` to discover the commands to run for each resource action.
+Concourse will first invoke `./info` to discover the commands to run for each resource action. The path to this script is relative to the image's working directory, so that it isn't coupled to any particular operating system. By not hardcoding an absolute path we can run resource types on platforms which may not support the idea of a "chroot".
 
 ### Request
 
