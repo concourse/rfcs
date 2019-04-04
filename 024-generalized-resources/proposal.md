@@ -7,53 +7,52 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 ## Motivation
 
 * Support for deleting versions in `put`:
-  * https://github.com/concourse/concourse/issues/362
-  * https://github.com/concourse/concourse/issues/524
+  * [concourse/concourse#362](https://github.com/concourse/concourse/issues/362)
+  * [concourse/concourse#524](https://github.com/concourse/concourse/issues/524)
 
 * Support for creating multiple versions from `put`:
-  * https://github.com/concourse/concourse/issues/2660
+  * [concourse/concourse#2660](https://github.com/concourse/concourse/issues/2660)
 
 * Having resource metadata immediately available via check:
-  * https://github.com/concourse/git-resource/issues/193
-  * https://github.com/concourse/concourse/issues/1714
+  * [git-resource#193](https://github.com/concourse/git-resource/issues/193)
+  * [concourse/concourse#1714](https://github.com/concourse/concourse/issues/1714)
 
 * Make the `get` after `put` opt-in:
-  * https://github.com/concourse/concourse/issues/3299
-  * https://stackoverflow.com/questions/38964299/why-does-concourse-get-a-resource-after-puting-it
-  * https://github.com/concourse/registry-image-resource/issues/16
+  * [concourse/concourse#3299](https://github.com/concourse/concourse/issues/3299)
+  * [image-resource#16](https://github.com/concourse/registry-image-resource/issues/16)
 
 * Unifying `source` and `params` as just `config` so that resources don't have to care where configuration is being set in pipelines:
-  * https://github.com/concourse/git-resource/pull/172
-  * https://github.com/concourse/bosh-deployment-resource/issues/13
-  * https://github.com/concourse/bosh-deployment-resource/issues/6
-  * https://github.com/concourse/cf-resource/pull/20
-  * https://github.com/concourse/cf-resource/pull/25
-  * https://github.com/concourse/git-resource/pull/210
+  * [concourse/git-resource#172](https://github.com/concourse/git-resource/pull/172)
+  * [concourse/bosh-deployment-resource#13](https://github.com/concourse/bosh-deployment-resource/issues/13)
+  * [concourse/bosh-deployment-resource#6](https://github.com/concourse/bosh-deployment-resource/issues/6)
+  * [concourse/cf-resource#20](https://github.com/concourse/cf-resource/pull/20)
+  * [concourse/cf-resource#25](https://github.com/concourse/cf-resource/pull/25)
+  * [concourse/git-resource#210](https://github.com/concourse/git-resource/pull/210)
 
 * Generalize interface to support non-versioned state:
-  * https://github.com/concourse/concourse/issues/739
+  * [concourse/concourse#739](https://github.com/concourse/concourse/issues/739)
 
 * Support for trigger-only resources that don't result in fetching anything - they just trigger the job:
-  * https://github.com/concourse/concourse/issues/3572
-  * https://github.com/concourse/concourse/issues/3595
+  * [concourse/concourse#3572](https://github.com/concourse/concourse/issues/3572)
+  * [concourse/concourse#3595](https://github.com/concourse/concourse/issues/3595)
 
 * Make resource actions more reentrant so that we no longer receive `unexpected EOF` errors upon reattaching to an in-flight build.
-  * https://github.com/concourse/concourse/issues/1580
+  * [concourse/concourse#1580](https://github.com/concourse/concourse/issues/1580)
 
 * Support multi-branch workflows:
-  * https://github.com/concourse/concourse/issues/1172
+  * [concourse/concourse#1172](https://github.com/concourse/concourse/issues/1172)
 
 * Begin phasing out `version: every` in by reframing the problem as 'pipeline per commit':
-  * https://github.com/concourse/concourse/issues/736
+  * [concourse/concourse#736](https://github.com/concourse/concourse/issues/736)
 
 * Support notifications in a way that doesn't pollute pipeline config and UI:
-  * https://github.com/concourse/concourse/issues/1052
-  * https://github.com/concourse/rfcs/issues/10
+  * [concourse/concourse#1052](https://github.com/concourse/concourse/issues/1052)
+  * [concourse/rfcs#10](https://github.com/concourse/rfcs/issues/10)
 
 * Support for showing icons for resources in the web UI:
-  * https://github.com/concourse/concourse/issues/788
-  * https://github.com/concourse/concourse/pull/3220
-  * https://github.com/concourse/concourse/pull/3581
+  * [concourse/concourse#788](https://github.com/concourse/concourse/issues/788)
+  * [concourse/concourse#3220](https://github.com/concourse/concourse/pull/3220)
+  * [concourse/concourse#3581](https://github.com/concourse/concourse/pull/3581)
 
 ## Glossary
 
@@ -109,7 +108,6 @@ type: time
 source:
   interval: 10m
 ```
-
 
 ## Interface Definition
 
@@ -187,7 +185,6 @@ With the v2 interface being more general, it makes no mention of versions and is
   * https://github.com/concourse/rfcs/issues/9
 * webhooks?
   * should these instead be something supported by *Concourse*?
-  * can this come from `/info`? would it need `config` passed to it?
 * resource-determined triggerability of versions?
   * https://github.com/concourse/rfcs/issues/11
 
@@ -197,7 +194,9 @@ With the v2 interface being more general, it makes no mention of versions and is
 
 ## New Implications
 
-many
+* Notifications
+* Spaces
+* Triggers
 
 ## Yet-to-be-organized notes
 
