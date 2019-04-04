@@ -115,8 +115,6 @@ source:
 
 Concourse will first invoke `./info` to discover the commands to run for each resource action. The path to this script is relative to the image's working directory, so that it isn't coupled to any particular operating system. By not hardcoding an absolute path we can run resource types on platforms which may not support the idea of a "chroot".
 
-### Request
-
 The `info` script will be given the resource's `config` on `stdin` so that it may interpret any fields necessary to formulate the response payload.
 
 ```go
@@ -125,8 +123,6 @@ type InfoRequest struct {
     Config Config `json:"config"`
 }
 ```
-
-### Response
 
 The `info` script must emit the following response on `stdout`:
 
@@ -151,7 +147,73 @@ type InfoResponse struct {
 
 The value of the `icon` field is a short string corresponding to an icon in Concourse's icon set (currently [Material Design Icons](https://materialdesignicons.com)).
 
+#### Example
+
+Request sent to `stdin`:
+
+```json
+{
+  "config": {
+    "uri": "https://github.com/concourse/concourse"
+  }
+}
+```
+
+Response written to `stdout`:
+
+```json
+{
+  "interface_version": "2.0",
+  "icon": "github-circle",
+  "check": "/opt/resource/check",
+  "get": "/opt/resource/get",
+  "put": "/opt/resource/put"
+}
+```
+
 ### `check`: monitor a config to discover config fragments
+
+The `check` command specified by `info` will be invoked with the following request piped to `stdin`:
+
+```go
+type CheckRequest struct {
+  // User-specified configuration.
+  Config Config `json:"config"`
+
+  // Path to a file into which the action must write its response.
+  ResponsePath string `json:"response_path"`
+}
+```
+
+The `check` command must write a stream of JSON objects ("events") containing **config fragments** and any associated **metadata** to the specified `response_path`.
+
+```go
+type CheckEvent struct {
+  Config   Config `json:"config"`
+  Metadata []Metadata `json:"metadata,omitempty"`
+}
+```
+
+#### Example
+
+Request sent to `stdin`:
+
+```json
+{
+  "config": {
+    "uri": "https://github.com/concourse/concourse",
+    "branch": "master"
+  }
+}
+```
+
+Response written to `stdout`:
+
+```json
+{"config":{"ref":"e4be0b367d7bd34580f4842dd09e7b59b6097b25"},"metadata":[{"name":"message","value":"init"}]}
+{"config":{"ref":"5a052ba6438d754f73252283c6b6429f2a74dbff"},"metadata":[{"name":"message","value":"add not-very-useful-yet readme"}]}
+{"config":{"ref":"2e256c3cb4b077f6fa3c465dd082fa74df8fab0a"},"metadata":[{"name":"message","value":"start fleshing out RFC process"}]}
+```
 
 ### `get`: fetch bits for a spliced config
 
