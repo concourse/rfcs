@@ -153,29 +153,37 @@ The value of the `icon` field is a short string corresponding to an icon in Conc
 
 ### `check`: monitor a config to discover config fragments
 
-### `get`: fetch bits for a given config
+### `get`: fetch bits for a spliced config
 
 ### `put`: use bits to perform side-effects corresponding to config fragments
 
 ## Artifact resources with v2
 
-Today's v1 resources are effectively "versioned artifact resources", as that is the only way Concourse pipelines support using them.
+All v1 resources are effectively "versioned artifact resources", as that is the only way Concourse pipelines support using them.
 
-With the v2 interface being more general, it makes no mention of versions and is less coupled to a notion of 'versioned artifacts'. In order for today's workflows to transition to v2 resources, we need to define how the general interface is interpreted by Concourse pipelines:
+A v2 resource type can be used as a versioned artifact resource by treating the **config fragments** as **versions** and implementing the following behavior:
 
-* Firstly, all **config fragments** are interpreted as **versions** for artifact resources.
+### `check`: discover versions over time
 
-* The `check` action will first be run with a "naked" config, containing only what the user specified. In this situation `check` must return *all* versions discovered in the config, in chronological order.
+The `check` action will first be run with a "naked" config, containing only what the user specified. In this situation `check` must return *all* versions discovered in the config, in chronological order.
 
-* Subsequent calls to `check` will be given a config that has been spliced with the last emitted version. The `check` script must emit any versions that came after the specified version.
-  * If the specified version is no longer present, the `check` action must emit a `reset` event and then return *all* versions, as if the version was not specified in the first place.
+Subsequent calls to `check` will be given a config that has been spliced with the last emitted version. The `check` script must emit any versions that came after the specified version.
 
-* The `get` action will always be invoked with a spliced config specifying which version to fetch.
-  * A `fetched` event must be emitted for all versions that have been fetched into the **bits** directory. Each version will be recorded as an input to the build.
+If the specified version is no longer present, the `check` action must emit a `reset` event and then return *all* versions, as if the version was not specified in the first place.
 
-* The `put` action will be invoked with user-provided configuration.
-  * A `created` event must be emitted for all versions that have been created by the `put` action. These will be recorded as outputs of the build.
-  * A `deleted` event must be emitted for all versions that have been deleted by the `put` action. These versions will be marked "deleted" and no longer be available for use in other builds.
+### `get`: fetch a version of an artifact
+
+The `get` action will always be invoked with a spliced config specifying which version to fetch. It is given an empty directory in which it should fetch the bits.
+
+A `fetched` event must be emitted for all versions that have been fetched into the bits directory. Each version will be recorded as an input to the build.
+
+### `put`: create, update, and/or delete artifact versions
+
+The `put` action will be invoked with user-provided configuration and arbitrary bits.
+
+A `created` event must be emitted for all versions that have been created by the `put` action. These will be recorded as outputs of the build.
+
+A `deleted` event must be emitted for all versions that have been deleted by the `put` action. These versions will be marked "deleted" and no longer be available for use in other builds.
 
 ## Open Questions
 
