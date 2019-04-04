@@ -189,6 +189,7 @@ The `check` command must write a stream of JSON objects ("events") containing **
 
 ```go
 type CheckEvent struct {
+  Event    string `json:"event"`
   Config   Config `json:"config"`
   Metadata []Metadata `json:"metadata,omitempty"`
 }
@@ -210,9 +211,36 @@ Request sent to `stdin`:
 Response written to `stdout`:
 
 ```json
-{"config":{"ref":"e4be0b367d7bd34580f4842dd09e7b59b6097b25"},"metadata":[{"name":"message","value":"init"}]}
-{"config":{"ref":"5a052ba6438d754f73252283c6b6429f2a74dbff"},"metadata":[{"name":"message","value":"add not-very-useful-yet readme"}]}
-{"config":{"ref":"2e256c3cb4b077f6fa3c465dd082fa74df8fab0a"},"metadata":[{"name":"message","value":"start fleshing out RFC process"}]}
+{
+  "event": "discovered",
+  "config": {"ref": "e4be0b367d7bd34580f4842dd09e7b59b6097b25"},
+  "metadata": [
+    {
+      "name": "message",
+      "value": "init"
+    }
+  ]
+}
+{
+  "event": "discovered",
+  "config": {"ref": "5a052ba6438d754f73252283c6b6429f2a74dbff"},
+  "metadata": [
+    {
+      "name": "message",
+      "value": "add not-very-useful-yet readme"
+    }
+  ]
+}
+{
+  "event": "discovered",
+  "config": {"ref": "2e256c3cb4b077f6fa3c465dd082fa74df8fab0a"},
+  "metadata": [
+    {
+      "name": "message",
+      "value": "start fleshing out RFC process"
+    }
+  ]
+}
 ```
 
 ### `get`: fetch bits for a spliced config
