@@ -277,14 +277,11 @@ A `deleted` event must be emitted for all versions that have been deleted by the
 
 ## Open Questions
 
-* enrich metadata?
-  * https://github.com/concourse/concourse/issues/310
-* standardize TLS config?
-  * https://github.com/concourse/rfcs/issues/9
+* [enrich metadata?](https://github.com/concourse/concourse/issues/310)
+* [standardize TLS config?](https://github.com/concourse/rfcs/issues/9)
+* [resource-determined triggerability of versions?](https://github.com/concourse/rfcs/issues/11)
 * webhooks?
   * should these instead be something supported by *Concourse*?
-* resource-determined triggerability of versions?
-  * https://github.com/concourse/rfcs/issues/11
 
 ## Answered Questions
 
@@ -313,4 +310,4 @@ Cataloguing ways in which generalized resources can be composed to accomplish di
 * trigger `check` -> config fragment -> trigger build if different from last config fragment
   * trigger-only resources
   * maybe the config fragment could be passed to something to support parameterized triggers? :thinking:
-  * maybe that could fit nicely with however we approach https://github.com/concourse/concourse/issues/783? :thinking:
+  * maybe that could fit nicely with however we approach [concourse/concourse#738](https://github.com/concourse/concourse/issues/783)? :thinking:
