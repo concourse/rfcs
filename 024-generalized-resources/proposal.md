@@ -288,9 +288,9 @@ A v2 resource type can be used as a versioned artifact resource by treating the 
 
 The `check` action will first be run with a "naked" config, containing only what the user specified. In this situation `check` must return *all* versions discovered in the config, in chronological order.
 
-Subsequent calls to `check` will be given a config that has been spliced with the last emitted version. The `check` script must emit any versions that came after the specified version.
+Subsequent calls to `check` will be given a config that has been spliced with the last emitted version. The `check` script must emit the given version if it still exists, followed by any versions that came after it.
 
-If the specified version is no longer present, the `check` action must emit a `reset` event and then return *all* versions, as if the version was not specified in the first place.
+If the specified version is no longer present, the `check` action must return *all* versions, as if the version was not specified in the first place. Concourse will detect this scenario by noticing that the first event emitted does not match the requested version.
 
 ### `get`: fetch a version of an artifact
 
