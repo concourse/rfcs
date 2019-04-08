@@ -173,13 +173,13 @@ type ActionResponse struct {
 }
 ```
 
-## `info`: discover resource type implementation info
+## Resource Info
 
-Prior to running any action, `./info` will be executed with an `InfoRequest` piped to `stdin`. The path to this script will be relative to the image's working directory.
+Prior to running any action, Concourse will execute the default command (i.e. [`CMD`](https://docs.docker.com/engine/reference/builder/#cmd)) for the image with an `InfoRequest` piped to `stdin`.
 
-The resource type must emit a `InfoResponse` to `stdout` in response. This response specifies the resource interface version that the resource conforms to, an optional icon to show in the UI, and the command to run for each supported resource action.
+The command must write an `InfoResponse` to `stdout` in response. This response specifies the resource interface version that the resource type conforms to, an optional icon to show in the UI, and the command to run for each supported resource action.
 
-### Example `info` request-response
+### Example **info** request/response
 
 Request sent to `stdin`:
 
