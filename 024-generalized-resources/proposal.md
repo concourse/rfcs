@@ -292,6 +292,6 @@ Examples: `github-status`, `slack`
 
 Examples: `time`
 
-## Open Questions
+## Out of scope
 
-* [enrich metadata?](https://github.com/concourse/concourse/issues/310)
+* [Richer metadata](https://github.com/concourse/concourse/issues/310) - this hasn't gained much traction and probably needs more investigation before it can be incorporated. This should be easy enough to add as a later RFC.
