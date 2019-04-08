@@ -232,36 +232,53 @@ Response written to `../response/response.json`:
 
 This response would be typical of a `check` that ran against a repo that had three commits.
 
+## Interpreting the Resource Interface
+
+The resource interface itself is now a general way of expressing interactions with external state. It is no longer restricted to versioning of artifacts.
+
+Concourse will now codify things like "versioned artifacts" and "spatial resources" as interpretations of this general interface, composing resource types with one another via **config fragments**.
+
+By leaving the interface general, resource authors don't know how their resource type will be used. This gives Concourse flexibility in defining new workflows without requiring resource authors to implement these new workflows themselves, and allows a resource type to be used for multiple use cases. For example, notifications and triggers are somewhat complementary and may both be supported by a resource type that implements the full interface.
+
+These interpretations are outlined in the following proposals:
+
+### [Artifact resources](../024-artifact-resources/proposal.md)
+
+* `check`: return versions in order
+* `get`: fetch a version of the resource
+* `put`: push versions of a resource
+* `delete`: delete versions of a resource
+
+Examples: `git`
+
+### [Spatial resources](../024-spatial-resources/proposal.md)
+
+* `check`: return a fragment for each space, no order
+* `get`: fetch whatever metadata is useful for a given space
+* `put`: create or update spaces
+* `delete`: delete spaces
+
+Examples: `git-branch`, `github-pr`
+
+### [Notification resources](../024-notification-resources/proposal.md)
+
+* `check`: not used
+* `get`: fetch bits pertaining to the notification
+* `put`: emit a notification
+* `delete`: clear github status?
+
+Examples: `github-status`, `slack`
+
+### [Trigger resources](../024-trigger-resources/proposal.md)
+
+* `check`: check against last fragment used for job
+* `get`: fetch bits pertaining to the trigger
+* `put`: manual trigger?
+* `delete`: not useful
+
+Examples: `time`
+
 ## Open Questions
 
 * [enrich metadata?](https://github.com/concourse/concourse/issues/310)
 * [standardize TLS config?](https://github.com/concourse/rfcs/issues/9)
-
-## Answered Questions
-
-* Version filtering is probably best left to `config`.
-
-## New Implications
-
-* Support [trigger resources](../024-trigger-resources/proposal.md).
-* Support [spatial resources](../024-spatial-resources/proposal.md).
-* Support [notification resources](../024-notification-resources/proposal.md).
-
-## Yet-to-be-organized notes
-
-Cataloguing ways in which generalized resources can be composed to accomplish different goals:
-
-* artifact `check` -> config fragment + artifact `check`
-  * check from version
-* artifact `check` -> config fragment + artifact `get`
-  * fetch specific version
-* artifact `put` -> config fragment + artifact `get`
-  * fetch just-created version
-* spatial `check` -> config fragment + artifact `check`
-  * check across all spaces
-* artifact `get` -> config fragment + notification `put`
-  * update github status
-* trigger `check` -> config fragment -> trigger build if different from last config fragment
-  * trigger-only resources
-  * maybe the config fragment could be passed to something to support parameterized triggers? :thinking:
-  * maybe that could fit nicely with however we approach [concourse/concourse#738](https://github.com/concourse/concourse/issues/783)? :thinking:

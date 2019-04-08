@@ -51,3 +51,7 @@ An `ActionResponse` must be emitted for all versions that have been destroyed. T
 * [resource-determined triggerability of versions?](https://github.com/concourse/rfcs/issues/11)
 * webhooks?
   * should these instead be something supported by *Concourse*?
+
+## Answered Questions
+
+* Version filtering is probably best left to `config`.
