@@ -6,53 +6,23 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 
 ## Motivation
 
-* Support for deleting versions in `put`:
-  * [concourse/concourse#362](https://github.com/concourse/concourse/issues/362)
-  * [concourse/concourse#524](https://github.com/concourse/concourse/issues/524)
+* Support for creating multiple versions from `put`: [concourse/concourse#2660](https://github.com/concourse/concourse/issues/2660)
 
-* Support for creating multiple versions from `put`:
-  * [concourse/concourse#2660](https://github.com/concourse/concourse/issues/2660)
+* Support for deleting versions: [concourse/concourse#362](https://github.com/concourse/concourse/issues/362), [concourse/concourse#524](https://github.com/concourse/concourse/issues/524)
 
-* Having resource metadata immediately available via check:
-  * [concourse/git-resource#193](https://github.com/concourse/git-resource/issues/193)
-  * [concourse/concourse#1714](https://github.com/concourse/concourse/issues/1714)
+* Having resource metadata immediately available via check: [concourse/git-resource#193](https://github.com/concourse/git-resource/issues/193), [concourse/concourse#1714](https://github.com/concourse/concourse/issues/1714)
 
-* Make the `get` after `put` opt-in:
-  * [concourse/concourse#3299](https://github.com/concourse/concourse/issues/3299)
-  * [concourse/registry-image-resource#16](https://github.com/concourse/registry-image-resource/issues/16)
+* Unifying `source` and `params` as just `config` so that resources don't have to care where configuration is being set in pipelines: [concourse/git-resource#172](https://github.com/concourse/git-resource/pull/172), [concourse/bosh-deployment-resource#13](https://github.com/concourse/bosh-deployment-resource/issues/13), [concourse/bosh-deployment-resource#6](https://github.com/concourse/bosh-deployment-resource/issues/6), [concourse/cf-resource#20](https://github.com/concourse/cf-resource/pull/20), [concourse/cf-resource#25](https://github.com/concourse/cf-resource/pull/25), [concourse/git-resource#210](https://github.com/concourse/git-resource/pull/210)
 
-* Unifying `source` and `params` as just `config` so that resources don't have to care where configuration is being set in pipelines:
-  * [concourse/git-resource#172](https://github.com/concourse/git-resource/pull/172)
-  * [concourse/bosh-deployment-resource#13](https://github.com/concourse/bosh-deployment-resource/issues/13)
-  * [concourse/bosh-deployment-resource#6](https://github.com/concourse/bosh-deployment-resource/issues/6)
-  * [concourse/cf-resource#20](https://github.com/concourse/cf-resource/pull/20)
-  * [concourse/cf-resource#25](https://github.com/concourse/cf-resource/pull/25)
-  * [concourse/git-resource#210](https://github.com/concourse/git-resource/pull/210)
+* Make resource actions more reentrant so that we no longer receive `unexpected EOF` errors upon reattaching to an in-flight build: [concourse/concourse#1580](https://github.com/concourse/concourse/issues/1580)
 
-* Generalize interface to support non-versioned state:
-  * [concourse/concourse#739](https://github.com/concourse/concourse/issues/739)
+* Support for showing icons for resources in the web UI: [concourse/concourse#788](https://github.com/concourse/concourse/issues/788), [concourse/concourse#3220](https://github.com/concourse/concourse/pull/3220), [concourse/concourse#3581](https://github.com/concourse/concourse/pull/3581)
 
-* Support for trigger-only resources that don't result in fetching anything - they just trigger the job:
-  * [concourse/concourse#3572](https://github.com/concourse/concourse/issues/3572)
-  * [concourse/concourse#3595](https://github.com/concourse/concourse/issues/3595)
+* Support [trigger resources](../024-trigger-resources/proposal.md).
 
-* Make resource actions more reentrant so that we no longer receive `unexpected EOF` errors upon reattaching to an in-flight build.
-  * [concourse/concourse#1580](https://github.com/concourse/concourse/issues/1580)
+* Support [spatial resources](../024-spatial-resources/proposal.md).
 
-* Support multi-branch workflows:
-  * [concourse/concourse#1172](https://github.com/concourse/concourse/issues/1172)
-
-* Begin phasing out `version: every` in by reframing the problem as 'pipeline per commit':
-  * [concourse/concourse#736](https://github.com/concourse/concourse/issues/736)
-
-* Support notifications in a way that doesn't pollute pipeline config and UI:
-  * [concourse/concourse#1052](https://github.com/concourse/concourse/issues/1052)
-  * [concourse/rfcs#10](https://github.com/concourse/rfcs/issues/10)
-
-* Support for showing icons for resources in the web UI:
-  * [concourse/concourse#788](https://github.com/concourse/concourse/issues/788)
-  * [concourse/concourse#3220](https://github.com/concourse/concourse/pull/3220)
-  * [concourse/concourse#3581](https://github.com/concourse/concourse/pull/3581)
+* Support [notification resources](../024-notification-resources/proposal.md).
 
 ## Glossary
 
@@ -262,47 +232,10 @@ Response written to `../response/response.json`:
 
 This response would be typical of a `check` that ran against a repo that had three commits.
 
-## Artifact resources with v2
-
-All v1 resources are effectively "versioned artifact resources", as that is the only way Concourse pipelines support using them.
-
-A v2 resource type can be used as a versioned artifact resource by treating the **config fragments** as **versions** and implementing the following behavior:
-
-### `check`: discover versions in order
-
-The `check` action will first be run with a "naked" config, containing only what the user specified. In this situation `check` must emit an `ActionResponse` for all versions discovered in the config, in chronological order.
-
-Subsequent calls to `check` will be given a config that has been spliced with the last emitted version config fragment. The `check` script must an `ActionResponse` for the given version if it still exists, followed by a response for any versions that came after it.
-
-If the specified version is no longer present, the `check` action must go back to returning all versions, as if the version was not specified in the first place. Concourse will detect this scenario by noticing that the first `ActionResponse` emitted does not match the requested version. All versions that existed before that were emitted will be automatically marked "deleted".
-
-The `check` action can use the **bits** directory to cache state between runs of the `check` on that worker. On the first run, the directory will be empty.
-
-### `get`: fetch a version of an artifact
-
-The `get` action will always be invoked with a spliced config specifying which version to fetch. It is given an empty **bits** directory in which to fetch the data.
-
-An `ActionResponse` must be emitted for all versions that have been fetched into the bits directory. Each version will be recorded as an input to the build.
-
-### `put`: idempotently create artifact versions
-
-The `put` action will be invoked with user-provided configuration and arbitrary bits.
-
-An `ActionResponse` must be emitted for all versions that have been created/updated. Each version will be recorded as an output of the build.
-
-### `delete`: idempotently destroy artifact versions
-
-The `delete` action will be invoked with user-provided configuration and arbitrary bits.
-
-An `ActionResponse` must be emitted for all versions that have been destroyed. These versions will be marked "deleted" and no longer be available for use in other builds.
-
 ## Open Questions
 
 * [enrich metadata?](https://github.com/concourse/concourse/issues/310)
 * [standardize TLS config?](https://github.com/concourse/rfcs/issues/9)
-* [resource-determined triggerability of versions?](https://github.com/concourse/rfcs/issues/11)
-* webhooks?
-  * should these instead be something supported by *Concourse*?
 
 ## Answered Questions
 
@@ -310,9 +243,9 @@ An `ActionResponse` must be emitted for all versions that have been destroyed. T
 
 ## New Implications
 
-* Notifications
-* Spaces
-* Triggers
+* Support [trigger resources](../024-trigger-resources/proposal.md).
+* Support [spatial resources](../024-spatial-resources/proposal.md).
+* Support [notification resources](../024-notification-resources/proposal.md).
 
 ## Yet-to-be-organized notes
 
