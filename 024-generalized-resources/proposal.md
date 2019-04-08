@@ -18,6 +18,8 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 
 * Support for showing icons for resources in the web UI: [concourse/concourse#788](https://github.com/concourse/concourse/issues/788), [concourse/concourse#3220](https://github.com/concourse/concourse/pull/3220), [concourse/concourse#3581](https://github.com/concourse/concourse/pull/3581)
 
+* Standardize TLS configuration so every resource doesn't implement their own way: [concourse/rfcs#9](https://github.com/concourse/rfcs/issues/9)
+
 * Support [trigger resources](../024-trigger-resources/proposal.md).
 
 * Support [spatial resources](../024-spatial-resources/proposal.md).
@@ -94,6 +96,15 @@ type MetadataField struct {
   Value string `json:"value"`
 }
 
+// TLSConfig captures common configuration for communicating with servers over TLS.
+type TLSConfig struct {
+  // An array of CA certificates to trust.
+  CAs []string `json:"ca_certs,omitempty"`
+
+  // Disable TLS, effectively making communication over TLS insecure.
+  InsecureSkipVerify bool `json:"insecure_skip_verify,omitempty"`
+}
+
 // InfoRequest is the payload written to stdin for the `./info` script.
 type InfoRequest struct {
   // User-specified configuration.
@@ -128,6 +139,9 @@ type InfoResponse struct {
 type ActionRequest struct {
   // User-specified configuration.
   Config Config `json:"config"`
+
+  // Configuration for handling TLS.
+  TLS TLSConfig `json:"tls,omitempty"`
 
   // Path to a file into which the action must write its response.
   ResponsePath string `json:"response_path"`
@@ -281,4 +295,3 @@ Examples: `time`
 ## Open Questions
 
 * [enrich metadata?](https://github.com/concourse/concourse/issues/310)
-* [standardize TLS config?](https://github.com/concourse/rfcs/issues/9)
