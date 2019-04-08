@@ -17,7 +17,8 @@ This proposal uses the [generalized resource interface](../024-generalized-resou
 
 ## Open Questions
 
-> Raise any concerns here for things you aren't sure about yet.
+* could the config fragment be passed to something to support parameterized triggers? :thinking:
+* could this be related to how we approach [concourse/concourse#738](https://github.com/concourse/concourse/issues/783)? :thinking:
 
 ## Answered Questions
 
