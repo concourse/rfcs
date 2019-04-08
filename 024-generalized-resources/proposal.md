@@ -14,12 +14,12 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
   * [concourse/concourse#2660](https://github.com/concourse/concourse/issues/2660)
 
 * Having resource metadata immediately available via check:
-  * [git-resource#193](https://github.com/concourse/git-resource/issues/193)
+  * [concourse/git-resource#193](https://github.com/concourse/git-resource/issues/193)
   * [concourse/concourse#1714](https://github.com/concourse/concourse/issues/1714)
 
 * Make the `get` after `put` opt-in:
   * [concourse/concourse#3299](https://github.com/concourse/concourse/issues/3299)
-  * [image-resource#16](https://github.com/concourse/registry-image-resource/issues/16)
+  * [concourse/registry-image-resource#16](https://github.com/concourse/registry-image-resource/issues/16)
 
 * Unifying `source` and `params` as just `config` so that resources don't have to care where configuration is being set in pipelines:
   * [concourse/git-resource#172](https://github.com/concourse/git-resource/pull/172)
