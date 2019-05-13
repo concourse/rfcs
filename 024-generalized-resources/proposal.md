@@ -4,6 +4,12 @@ This proposal adapts today's 'resource' interface into a more general interface 
 
 Today's resources are closely tied to the 'versioned artifact' use case, so this proposal will also show how the new interface is "interpreted" in order to support this use case.
 
+## Previous Discussions
+
+* [RFC #1](https://github.com/concourse/rfcs/pull/1), now defunct, is similar to this proposal but had the "spaces" concept integrated into it.
+  * **Recommended reading**: [this comment](https://github.com/concourse/rfcs/pull/1#issuecomment-477749314) outlines the thought process that led to this RFC.
+* [concourse/concourse#534](https://github.com/concourse/concourse/issues/534) was the first 'new resource interface' proposal which pre-dated the RFC process.
+
 ## Motivation
 
 * Support for creating multiple versions from `put`: [concourse/concourse#2660](https://github.com/concourse/concourse/issues/2660)
