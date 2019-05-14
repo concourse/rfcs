@@ -123,6 +123,9 @@ type InfoResponse struct {
   InterfaceVersion string `json:"interface_version"`
 
   // An optional icon name to show to the user when viewing the resource.
+  //
+  // Icons must be namespaced by in order to explicitly reference an icon set
+  // supported by Concourse, e.g. 'mdi:' for Material Design Icons.
   Icon string `json:"icon,omitempty"`
 
   // The actions supported by the resource type.
@@ -186,7 +189,7 @@ Response written to `stdout`:
 ```json
 {
   "interface_version": "2.0",
-  "icon": "github-circle",
+  "icon": "mdi:github-circle",
   "actions": {
     "check": "/usr/bin/git-resource check",
     "get": "/usr/bin/git-resource get",
