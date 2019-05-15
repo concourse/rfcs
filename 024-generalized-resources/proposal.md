@@ -6,7 +6,7 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 
 ## Previous Discussions
 
-* [RFC #1](https://github.com/concourse/rfcs/pull/1), now defunct, is similar to this proposal but had the "spaces" concept integrated into it.
+* [RFC #1](https://github.com/concourse/rfcs/pull/1), now defunct, is similar to this proposal but had a concept of "spaces" baked into the interface. This concept has been decoupled from the resource interface and will be re-introduced in a later RFC that is compatible with v1 and v2 resources.
   * **Recommended reading**: [this comment](https://github.com/concourse/rfcs/pull/1#issuecomment-477749314) outlines the thought process that led to this RFC.
 * [concourse/concourse#534](https://github.com/concourse/concourse/issues/534) was the first 'new resource interface' proposal which pre-dated the RFC process.
 
@@ -20,7 +20,7 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 
 * Unifying `source` and `params` as just `config` so that resources don't have to care where configuration is being set in pipelines: [concourse/git-resource#172](https://github.com/concourse/git-resource/pull/172), [concourse/bosh-deployment-resource#13](https://github.com/concourse/bosh-deployment-resource/issues/13), [concourse/bosh-deployment-resource#6](https://github.com/concourse/bosh-deployment-resource/issues/6), [concourse/cf-resource#20](https://github.com/concourse/cf-resource/pull/20), [concourse/cf-resource#25](https://github.com/concourse/cf-resource/pull/25), [concourse/git-resource#210](https://github.com/concourse/git-resource/pull/210)
 
-* Make resource actions more reentrant so that we no longer receive `unexpected EOF` errors upon reattaching to an in-flight build: [concourse/concourse#1580](https://github.com/concourse/concourse/issues/1580)
+* Make resource actions reentrant so that we no longer receive `unexpected EOF` errors when reattaching to an in-flight build whose resource action completed while we weren't attached: [concourse/concourse#1580](https://github.com/concourse/concourse/issues/1580)
 
 * Support for showing icons for resources in the web UI: [concourse/concourse#788](https://github.com/concourse/concourse/issues/788), [concourse/concourse#3220](https://github.com/concourse/concourse/pull/3220), [concourse/concourse#3581](https://github.com/concourse/concourse/pull/3581)
 
@@ -47,10 +47,11 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
   * Examples: `[{"name":"committer","value":"Alex Suraci"}]`
 
 * **Resource type**: an implementation of the interface defined by this proposal, typically provided as a container image. Implements the following actions:
-  * `info`: given a **config**, emit provide the commands to run for the following actions:
+  * `info`: given a **config**, emit a response specifying the command to run for each action
   * `check`: given a **config**, emit **config fragments**
   * `get`: given a **config**, populate a directory with **bits**
-  * `put`: given a **config** and a directory containing **bits**, create or delete **config fragments**
+  * `put`: given a **config** and a directory containing **bits**, create or update **config fragments**
+  * `delete`: given a **config** and a directory containing **bits**, delete **config fragments**
   * Examples:
     * `git-branches` resource type for tracking branches in a repo
     * `git` resource type for tracking commits in a branch
