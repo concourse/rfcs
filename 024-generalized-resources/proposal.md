@@ -266,7 +266,7 @@ By leaving the interface general, resource authors don't know how their resource
 
 These interpretations are outlined in the following proposals:
 
-### [Artifact resources](../024-artifact-resources/proposal.md)
+### [Artifact resources](https://github.com/concourse/rfcs/pull/26)
 
 * `check`: return versions in order
 * `get`: fetch a version of the resource
@@ -275,7 +275,7 @@ These interpretations are outlined in the following proposals:
 
 Examples: `git`
 
-### [Spatial resources](../024-spatial-resources/proposal.md)
+### [Spatial resources](https://github.com/concourse/rfcs/pull/29)
 
 * `check`: return a fragment for each space, no order
 * `get`: fetch whatever metadata is useful for a given space
@@ -284,7 +284,7 @@ Examples: `git`
 
 Examples: `git-branch`, `github-pr`
 
-### [Notification resources](../024-notification-resources/proposal.md)
+### [Notification resources](https://github.com/concourse/rfcs/pull/28)
 
 * `check`: not used
 * `get`: fetch bits pertaining to the notification
@@ -293,7 +293,7 @@ Examples: `git-branch`, `github-pr`
 
 Examples: `github-status`, `slack`
 
-### [Trigger resources](../024-trigger-resources/proposal.md)
+### [Trigger resources](https://github.com/concourse/rfcs/pull/27)
 
 * `check`: check against last fragment used for job
 * `get`: fetch bits pertaining to the trigger
