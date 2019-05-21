@@ -70,7 +70,7 @@ func setupBlobstore() tekton.PipelineResource {
 			Type: tekton.PipelineResourceTypeStorage,
 			Params: []tekton.Param{
 				newParam("type", "gcs"),
-				newParam("location", "gs://k8s-runtime-blobstore"),
+				newParam("location", "gs://k8s-runtime-blobstore/blobs"),
 				newParam("dir", "yeah"),
 			},
 			SecretParams: []tekton.SecretParam{
@@ -113,7 +113,7 @@ func newGetStep(stepName, resourceName, resourceType string, resourceInput getRe
 							`
 # since it does gsutils cp -r /workspace/output/%%s/*, if we exclude the "blobs" dir, it will
 # flatten the directory structure
-output=/workspace/output/%s/blobs/%s
+output=/workspace/output/%s/%s
 mkdir -p $output
 /opt/resource/in $output <<EOF
 %s
@@ -214,11 +214,6 @@ func newTaskStep(stepName, image, cmd string, args []string, privalged bool, env
 					"alpine",
 					"chmod",
 					[]string{"-R", "+x", "."},
-					map[string]string{}),
-				newContainer("move-stuff",
-					"alpine",
-					"mv",
-					[]string{"/workspace/blobs/*", "/workspace"},
 					map[string]string{}),
 				newContainer("run-job-step", image, cmd, args, env),
 			},

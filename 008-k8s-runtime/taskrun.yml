@@ -1,0 +1,14 @@
+apiVersion: tekton.dev/v1alpha1
+kind: TaskRun
+metadata:
+  name: blah
+spec:
+  taskRef:
+    name: job-0-step-1
+  trigger:
+    type: manual
+  inputs:
+    resources:
+      - name: concourse-internal-blobstore
+        resourceRef:
+          name: concourse-internal-blobstore

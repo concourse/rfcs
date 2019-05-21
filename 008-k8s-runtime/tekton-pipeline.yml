@@ -1,0 +1,200 @@
+{
+  "kind": "PipelineResource",
+  "apiVersion": "tekton.dev/v1alpha1",
+  "metadata": {
+    "name": "concourse-internal-blobstore",
+    "creationTimestamp": null
+  },
+  "spec": {
+    "type": "storage",
+    "params": [
+      {
+        "name": "type",
+        "value": "gcs"
+      },
+      {
+        "name": "location",
+        "value": "gs://k8s-runtime-blobstore/blobs"
+      },
+      {
+        "name": "dir",
+        "value": "yeah"
+      }
+    ],
+    "secrets": [
+      {
+        "fieldName": "GOOGLE_APPLICATION_CREDENTIALS",
+        "secretKey": "service-account-key.json",
+        "secretName": "service-account"
+      }
+    ]
+  },
+  "status": {}
+}
+{
+  "kind": "Task",
+  "apiVersion": "tekton.dev/v1alpha1",
+  "metadata": {
+    "name": "job-0-step-0",
+    "creationTimestamp": null
+  },
+  "spec": {
+    "outputs": {
+      "resources": [
+        {
+          "name": "concourse-internal-blobstore",
+          "type": "storage",
+          "targetPath": ""
+        }
+      ]
+    },
+    "steps": [
+      {
+        "name": "run-resource-get",
+        "image": "concourse/git-resource:ubuntu",
+        "command": [
+          "bash"
+        ],
+        "args": [
+          "-c",
+          "\n# since it does gsutils cp -r /workspace/output/%s/*, if we exclude the \"blobs\" dir, it will\n# flatten the directory structure\noutput=/workspace/output/concourse-internal-blobstore/booklit\nmkdir -p $output\n/opt/resource/in $output \u003c\u003cEOF\n{\"source\":{\"uri\":\"https://github.com/vito/booklit\"},\"version\":{\"ref\":\"HEAD\"}}\nEOF\nls -lR /workspace/output\n\t\t\t\t\t\t\t"
+        ],
+        "resources": {}
+      }
+    ]
+  }
+}
+{
+  "kind": "Task",
+  "apiVersion": "tekton.dev/v1alpha1",
+  "metadata": {
+    "name": "job-0-step-1",
+    "creationTimestamp": null
+  },
+  "spec": {
+    "inputs": {
+      "resources": [
+        {
+          "name": "concourse-internal-blobstore",
+          "type": "storage",
+          "targetPath": "."
+        }
+      ]
+    },
+    "steps": [
+      {
+        "name": "make-everything-executable",
+        "image": "alpine",
+        "command": [
+          "chmod"
+        ],
+        "args": [
+          "-R",
+          "+x",
+          "."
+        ],
+        "resources": {}
+      },
+      {
+        "name": "run-job-step",
+        "image": "golang",
+        "command": [
+          "booklit/ci/test"
+        ],
+        "env": [
+          {
+            "name": "COVERALLS_TOKEN"
+          },
+          {
+            "name": "GIT_BRANCH",
+            "value": "master"
+          }
+        ],
+        "resources": {}
+      }
+    ]
+  }
+}
+{
+  "kind": "Pipeline",
+  "apiVersion": "tekton.dev/v1alpha1",
+  "metadata": {
+    "name": "pipeline",
+    "creationTimestamp": null
+  },
+  "spec": {
+    "resources": [
+      {
+        "name": "concourse-internal-blobstore",
+        "type": "storage"
+      }
+    ],
+    "tasks": [
+      {
+        "name": "job-0-step-0",
+        "taskRef": {
+          "name": "job-0-step-0"
+        },
+        "resources": {
+          "inputs": null,
+          "outputs": [
+            {
+              "name": "concourse-internal-blobstore",
+              "resource": "concourse-internal-blobstore"
+            }
+          ]
+        }
+      },
+      {
+        "name": "job-0-step-1",
+        "taskRef": {
+          "name": "job-0-step-1"
+        },
+        "runAfter": [
+          "job-0-step-0"
+        ],
+        "resources": {
+          "inputs": [
+            {
+              "name": "concourse-internal-blobstore",
+              "resource": "concourse-internal-blobstore"
+            }
+          ],
+          "outputs": null
+        }
+      }
+    ],
+    "params": null
+  },
+  "status": {}
+}
+{
+  "kind": "PipelineRun",
+  "apiVersion": "tekton.dev/v1alpha1",
+  "metadata": {
+    "name": "pipeline-instance",
+    "creationTimestamp": null
+  },
+  "spec": {
+    "pipelineRef": {
+      "name": "pipeline"
+    },
+    "trigger": {
+      "type": "manual"
+    },
+    "resources": [
+      {
+        "name": "concourse-internal-blobstore",
+        "resourceRef": {
+          "name": "concourse-internal-blobstore"
+        }
+      }
+    ],
+    "params": null,
+    "serviceAccount": "",
+    "Status": ""
+  },
+  "status": {
+    "conditions": null
+  }
+}

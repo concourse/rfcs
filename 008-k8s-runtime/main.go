@@ -8,7 +8,7 @@ import (
 	tekton "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 )
 
-var plan []atc.Plan = []atc.Plan{
+var plans []atc.Plan = []atc.Plan{
 	atc.Plan{
 		Get: &atc.GetPlan{
 			Name:     "booklit",
@@ -22,19 +22,19 @@ var plan []atc.Plan = []atc.Plan{
 			},
 		},
 	},
-	atc.Plan{
-		Get: &atc.GetPlan{
-			Name:     "docs",
-			Resource: "docs",
-			Type:     "git",
-			Source: atc.Source{
-				"uri": "https://github.com/concourse/docs",
-			},
-			Version: &atc.Version{
-				"ref": "HEAD",
-			},
-		},
-	},
+	// atc.Plan{
+	// 	Get: &atc.GetPlan{
+	// 		Name:     "docs",
+	// 		Resource: "docs",
+	// 		Type:     "git",
+	// 		Source: atc.Source{
+	// 			"uri": "https://github.com/concourse/docs",
+	// 		},
+	// 		Version: &atc.Version{
+	// 			"ref": "HEAD",
+	// 		},
+	// 	},
+	// },
 	atc.Plan{
 		Task: &atc.TaskPlan{
 			Name: "test",
@@ -80,7 +80,7 @@ func main() {
 	pipeline := newPipeline()
 	sequential := []string{}
 
-	for i, plan := range plan {
+	for i, plan := range plans {
 		name := newName(0, i)
 		var (
 			task         tekton.Task
