@@ -26,12 +26,6 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
 
 * Standardize TLS configuration so every resource doesn't implement their own way: [concourse/rfcs#9](https://github.com/concourse/rfcs/issues/9)
 
-* Support [trigger resources](../024-trigger-resources/proposal.md).
-
-* Support [spatial resources](../024-spatial-resources/proposal.md).
-
-* Support [notification resources](../024-notification-resources/proposal.md).
-
 ## Glossary
 
 * **Config**: an arbitrarily nested JSON object containing user-provided configuration
