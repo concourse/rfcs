@@ -1,0 +1,34 @@
+resource_types:
+- name: github-prs
+  type: registry-image
+  source: {repository: concourse/github-pr-resource}
+
+spaces:
+# returns config fragments like `ref: pull/ID/head`
+- name: concourse-prs
+  type: github-prs
+  source: {repository: concourse/concourse}
+
+artifacts:
+# used as the 'base branch' to merge PRs into prior to testing
+- name: concourse-master
+  type: git
+  source:
+    uri: https://github.com/concourse/concourse
+    branch: master
+
+artifact_spaces:
+# points the git resource at `ref: pull/ID/head` to track commits on PR refs
+- name: concourse-pr
+  type: git
+  across: concourse-prs
+  source:
+    uri: https://github.com/concourse/concourse
+
+jobs:
+- name: unit
+  plan:
+  - span: concourse-pr
+  - get: concourse-master
+  - task: merge # merge master into pr locally
+  - task: unit # run tests against merge

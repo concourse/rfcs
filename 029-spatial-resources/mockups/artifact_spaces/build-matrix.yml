@@ -1,0 +1,50 @@
+artifacts:
+- name: webapp
+  type: git
+  source: {uri: https://github.com/vito/some-webapp}
+
+artifact_spaces:
+- name: golang-image
+  type: registry-image
+  source: {repository: golang}
+  across:
+  - tag: 1.8
+  - tag: 1.9
+
+- name: postgres-image
+  type: registry-image
+  source: {repository: postgres}
+  across:
+  - tag: 9.5
+  - tag: 11
+
+jobs:
+- name: unit
+  plan:
+  - span: golang-image
+  - get: webapp
+  - task: unit
+    image: golang-image
+    file: webapp/ci/unit.yml
+
+- name: integration
+  plan:
+  - span: golang-image
+    passed: [unit]
+  - get: webapp
+    passed: [unit]
+  - span: postgres-image
+  - task: integration
+    file: webapp/ci/integration.yml
+
+- name: ship
+  plan:
+  - get: webapp
+    # same version must pass on all combinations of integration
+    passed: [integration]
+    # e.g.:
+    # passed:
+    # - integration: {golang-image: {tag: 1.8}, postgres-image: {tag: 9.5}}
+    # - integration: {golang-image: {tag: 1.9}, postgres-image: {tag: 9.5}}
+    # - integration: {golang-image: {tag: 1.8}, postgres-image: {tag: 11}}
+    # - integration: {golang-image: {tag: 1.9}, postgres-image: {tag: 11}}

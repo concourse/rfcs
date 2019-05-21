@@ -1,0 +1,26 @@
+resource_types:
+- name: git-branch
+  type: registry-image
+  source: {repository: concourse/git-branch-resource}
+
+spaces:
+# returns config fragments like `branch: feature/some-feature`
+- name: concourse-branches
+  type: git-branch
+  source:
+    uri: https://github.com/concourse/concourse
+    filter: feature/*
+
+artifact_spaces:
+# points the git resource at `branch: foo` to track commits on branches
+- name: concourse
+  type: git
+  across: concourse-branches
+  source:
+    uri: https://github.com/concourse/concourse
+
+jobs:
+- name: unit
+  plan:
+  - span: concourse
+  - task: unit
