@@ -102,8 +102,8 @@ type TLSConfig struct {
   // An array of CA certificates to trust.
   CAs []string `json:"ca_certs,omitempty"`
 
-  // Disable TLS, effectively making communication over TLS insecure.
-  InsecureSkipVerify bool `json:"insecure_skip_verify,omitempty"`
+  // Skip certificate verification, effectively making communication insecure.
+  SkipVerification bool `json:"skip_verification,omitempty"`
 }
 
 // InfoRequest is the payload written to stdin for the `./info` script.
