@@ -1,8 +1,14 @@
 # Generalized Resources
 
-This proposal adapts today's 'resource' interface into a more general interface that is less specialized to the 'versioned artifacts' use case, while also introducing versioning to the interface so that it'll be easier to make incremental changes to the interface itself and support mixed resource versions within a user's pipeline.
+This proposal adapts today's 'resource' interface ("v1") into a more general resource interface that is less specialized to the 'versioned artifacts' use case currently supported by Concourse pipelines.
 
-Today's resources are closely tied to the 'versioned artifact' use case, so this proposal will also show how the new interface is "interpreted" in order to support this use case.
+The proposed interface is versioned, starting at `2.0`. Each resource type will have its [resource info](#resource-info) fetched to discover its version.
+
+Concourse will support use of mixed resource interface versions. When a resource type does not support the new 'info' request flow it will be assumed to be v1.
+
+[Resource actions](#resource-actions) have all been updated to fit the exact same request/response interface. This proposal defines four core actions: `check`, `get`, `put`, and `delete`.
+
+Each action emits **config fragments**, which replace 'versions' from the v1 interface. By using a more general name the interface can be used for use cases beyond just versioning artifacts. See [Interpreting the Resource Interface](#interpreting-the-resource-interface) for more details.
 
 ## Previous Discussions
 
@@ -53,34 +59,6 @@ Today's resources are closely tied to the 'versioned artifact' use case, so this
     * `time` resource type for doing timed job triggers
 
 * **Resource**: a **resource type** with a user-provided **config**, used together to represent external state.
-
-## Example Resources
-
-```yaml
-type: git-branches
-source:
-  uri: https://github.com/concourse/concourse
-```
-
-```yaml
-type: git
-source:
-  uri: https://github.com/concourse/concourse
-  branch: master
-```
-
-```yaml
-type: github-status
-source:
-  repository: concourse/concourse
-  access_token: abcdef
-```
-
-```yaml
-type: time
-source:
-  interval: 10m
-```
 
 ## Interface Types
 
@@ -252,15 +230,28 @@ This response would be typical of a `check` that ran against a repo that had thr
 
 ## Interpreting the Resource Interface
 
-The resource interface itself is now a general way of expressing interactions with external state. It is no longer restricted to versioning of artifacts.
+The resource interface itself is now a general way of expressing interactions with external state. It is no longer based on versioning of artifacts.
 
-Concourse will now codify things like "versioned artifacts" and "spatial resources" as interpretations of this general interface, composing resource types with one another via **config fragments**.
+Concourse will now codify things like "artifact resources" and "spatial resources" as interpretations of this general interface, composing resource types with one another via **config fragments**.
 
-By leaving the interface general, resource authors don't know how their resource type will be used. This gives Concourse flexibility in defining new workflows without requiring resource authors to implement these new workflows themselves, and allows a resource type to be used for multiple use cases. For example, notifications and triggers are somewhat complementary and may both be supported by a resource type that implements the full interface.
+By leveraging composition instead of having a monolithic interface, this approach encourages narrowly scoped resource type implementations. Implementations that are small in scope are more likely to be correct and 'finished' at some point, and only become more powerful as Concourse enables new workflows at the pipeline-level.
 
-These interpretations are outlined in the following proposals:
+For example, as an author of a `git` artifact resource type, I just have to implement a linear, versioned artifact interface. In `git`, linear versioning (assuming `--first-parent`) occurs on a branch, so that can be specified in `config`. What if users want to run against all branches? As a resource type author, that's not my problem! Let them use a `git-branches` spatial resource and compose it with my resource to provide the `branch` config.
+
+By not baking the workflow directly into the interface, this also allows a single resource type implementation to be used for multiple interpretations. For example, notifications and triggers are complementary and can both be supported by a resource type that supports the required actions (`put` for notifications and `check`/`get` for triggers).
+
+Four interpretations are outlined in the following proposals. The RFCs linked below show how the v2 interface can be used to support various pipeline workflows. The described workflows can also work with v1 resources, however, and so they are not explicitly dependent on the v2 interface. This is done intentionally so that our roadmap doesn't have to be so linear.
 
 ### [Artifact resources](https://github.com/concourse/rfcs/pull/26)
+
+```yaml
+artifacts:
+- name: concourse
+  type: git
+  source:
+    uri: https://github.com/concourse/concourse
+    branch: master
+```
 
 * `check`: return versions in order
 * `get`: fetch a version of the resource
@@ -271,27 +262,51 @@ Examples: `git`
 
 ### [Spatial resources](https://github.com/concourse/rfcs/pull/29)
 
+```yaml
+spaces:
+- name: concourse-branches
+  type: git-branches
+  source:
+    uri: https://github.com/concourse/concourse
+```
+
 * `check`: return a fragment for each space, no order
 * `get`: fetch whatever metadata is useful for a given space
 * `put`: create or update spaces
 * `delete`: delete spaces
 
-Examples: `git-branch`, `github-pr`
+Examples: `git-branches`, `github-prs`
 
 ### [Notification resources](https://github.com/concourse/rfcs/pull/28)
+
+```yaml
+notifications:
+- name: concourse-status
+  type: github-status
+  source:
+    repository: concourse/concourse
+    access_token: abcdef
+```
 
 * `check`: not used
 * `get`: fetch bits pertaining to the notification
 * `put`: emit a notification
-* `delete`: clear github status?
+* `delete`: not sure - clear github status?
 
 Examples: `github-status`, `slack`
 
 ### [Trigger resources](https://github.com/concourse/rfcs/pull/27)
 
+```yaml
+triggers:
+- name: every-10m
+  type: time
+  source: {interval: 10m}
+```
+
 * `check`: check against last fragment used for job
 * `get`: fetch bits pertaining to the trigger
-* `put`: manual trigger?
+* `put`: not useful
 * `delete`: not useful
 
 Examples: `time`
