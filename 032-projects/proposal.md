@@ -1,5 +1,3 @@
-# Projects RFC
-
 # Summary
 
 A Concourse project is a namespace for resources, tasks, and pipelines. Projects are bootstrapped from a single resource definition and a build plan which executes when new versions of the resource are found. Projects bridge the gap between small-scale and large-scale CI workflows, helping to smoothen Concourse's learning curve.
