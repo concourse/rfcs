@@ -1,5 +1,3 @@
-# Archiving Pipelines RFC
-
 # Summary
 
 This proposal outlines a relatively straightforward 'archiving' operation which can be used to soft-delete a pipeline while preserving its data for later perusal.
