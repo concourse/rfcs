@@ -15,11 +15,11 @@
 
 - Also, when working on the super-admin concept (concourse/concourse#4192), We found that
   a lot of the features of the superadmin only made sense in the light of having a
-  separate team for the super-admin personna.
+  separate team for the super-admin persona.
 
 # Proposal
 
-- Renaming the `main` team into `operator` team.
+- Renaming the `main` team into the `operator` team.
 
 - On startup, Concourse would start with either the `operator` team only or both the
   `operator` and the `main` team.
@@ -28,7 +28,7 @@
   should not accept pipelines, or workers. The purpose of this team is to only manage the
   Concourse Cluster and not to create pipelines.
 
-- **Super Priviliges:** these are cross team abilities, for instance viewing all the
+- **Super Privileges:** these are cross-team abilities, for instance viewing all the
   pipelines, teams, running `set-team` ... as well as any commands that would be more
   operation specific. Also, the web ui should also show everything and also pipeline
   controls should be available for operators. We have covered most of the super features
@@ -46,7 +46,7 @@
   abstraction that can be used later on for different features, like org workers for
   example.
 
-- for the time being `set-team` would only create normal teams since there only one
+- for the time being, `set-team` would only create normal teams since there only one
   operator team. Next, a parameter can be added to set the team as operator or normal.
 
 # Open Questions
