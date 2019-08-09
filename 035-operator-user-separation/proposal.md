@@ -10,12 +10,14 @@
   controls the Concourse cluster and the user which is the one that uses Concourse without
   caring a lot about operational problems.
 
-- The separation between the 2 roles started to appear when the concept of [RBAC](https://concourse-ci.org/user-roles.html) was
-  implemented as of Concourse 5.0 that opened the doors towards different types of roles. 
+- The separation between the 2 roles started to appear when the concept of
+  [RBAC](https://concourse-ci.org/user-roles.html) was implemented as of Concourse 5.0
+  that opened the doors towards different types of roles. 
 
-- Also, when working on the super-admin concept ([concourse/concourse#4192](https://github.com/concourse/concourse/issues/4192)), We found that
-  a lot of the features of the superadmin only made sense in the light of having a
-  separate team for the super-admin persona.
+- Also, when working on the super-admin concept
+  ([concourse/concourse#4192](https://github.com/concourse/concourse/issues/4192)), We
+  found that a lot of the features of the superadmin only made sense in the light of
+  having a separate team for the super-admin persona.
 
 # Proposal
 
@@ -49,10 +51,12 @@
 - for the time being, `set-team` would only create normal teams since there only one
   operator team. Next, a parameter can be added to set the team as operator or normal.
   
-- One more wild thought, the operators' landing page can be different from the normal dashboard, having more operator specific monitoring.
+- One more wild thought, the operators' landing page can be different from the normal
+  dashboard, having more operator specific monitoring.
 
 # Open Questions
 
-- If accepted, do we want to startup Concourse with `operator` and `main` teams or only `operator` and allow operators to create teams as needed?
+- If accepted, do we want to startup Concourse with `operator` and `main` teams or only
+  `operator` and allow operators to create teams as needed?
 - Would this be too much in case of a small Concourse deployment?
 - How to run Concourse as an operator and a user at the same time?
