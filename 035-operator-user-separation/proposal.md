@@ -13,7 +13,7 @@
 - The separation between the 2 roles started to appear when the concept of RBAC was
   implemented as of Concourse 5.0 that opened the doors towards different types of roles. 
 
-- Also, when working on the super-admin concept (concourse/concourse#4192), We found that
+- Also, when working on the super-admin concept ([concourse/concourse#4192](https://github.com/concourse/concourse/issues/4192)), We found that
   a lot of the features of the superadmin only made sense in the light of having a
   separate team for the super-admin persona.
 
@@ -32,7 +32,7 @@
   pipelines, teams, running `set-team` ... as well as any commands that would be more
   operation specific. Also, the web ui should also show everything and also pipeline
   controls should be available for operators. We have covered most of the super features
-  in concourse/concourse#4195.
+  in [concourse/concourse#4195](https://github.com/concourse/concourse/issues/4192).
 
 - Depending on the type of the logged-in user (operator, user), fly would show different
   help menus and would accept different commands. This also allows for more fly commands
