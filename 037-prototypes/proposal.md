@@ -360,65 +360,7 @@ receive a `get` message with the following object:
 Note that the object properties have been merged into the original set of
 properties.
 
-## Migrating Resources to Prototypes
-
-All existing Concourse resources can map directly to a prototype
-implementation, as they implement a set of commands which act on the resource
-type's defining entity.
-
-Concourse will support use of resources alongside prototypes. When a resource
-type does not support the new 'info' request flow it will be assumed to be v1.
-
-* `resource_types`: v1 resources
-* `prototypes:` prototypes!
-
-## Direct Pipeline Usage
-
-Now for the fun part!
-
-So far this proposal has been waxing theoretical and using a bunch of
-fancy-pants terminology. But how will it look when it goes up to the user?
-
-For starters, I *don't* think we should necessarily bubble up the same
-terminology. Users writing pipelines may appreciate the mental model underlying
-everything, but it's more likely that when they're writing build plans they
-just want to run something. Not "send something a message."
-
-There are a lot of options here. Some of them add a bit of syntactic sugar
-(e.g. `oci-image.build`) which is uncharted territory but does feel a bit
-nicer.
-
-```yaml
-prototypes:
-- name: oci-image
-  type: registry-image
-  source:
-    repository: vito/oci-image-prototype
-
-jobs:
-- name: build-image
-  plan:
-  - get: concourse
-
-  # manually run 'get' action anonymously
-  #
-  # NOTE: has no checking or caching semantics
-  - run: get
-    type: git
-    params:
-      uri: https://github.com/concourse/concourse
-      ref: v5.0.0
-
-    # 'get' handlers always produce an output named 'resource'
-    output_mapping: {resource: concourse}
-      
-  - run: build
-    type: oci-image
-    params: {context: concourse}
-    outputs: [image]
-```
-
-### Running a Message Handler
+## Pipeline Usage
 
 A new `run` step type will be introduced. It takes the name of a message to
 send, and a `type` denoting the prototype to use:
@@ -455,48 +397,28 @@ resources:
   source:
     uri: https://example.com/my-image-src
 
+- name: my-image
+  type: registry-image
+  source:
+    repository: example/my-image
+    username: some-username
+    password: some-password
+
 jobs:
-- name: build-my-image
+- name: build-and-push
   plan:
   - get: my-image-src
   - run: build
     type: oci-image
     input_mapping: {context: my-image-src}
     outputs: [image]
+  - put: my-image
+    params: {image: image/image.tar}
 ```
 
-For this example we've also snuck in a pipeline resource definition
-(`my-image-src`). Under the hood, resources are just prototypes which support
-`check` and `get` and have the following behavior:
-
-* A resource prototype's `check` handler finds new versions of the resource.
-* A resource prototype's `get` handler produces an output directory named
-  `resource`.
-* Concourse will `check` periodically to find new versions of the resource.
-  * When a job has a `get` step with `trigger: true`, Concourse will
-    automatically trigger new builds of the job when new versions of the
-    resource are found.
-* The `get` step will execute the `get` handler and map its `resource` output
-  to the name of the resource, making it available to subsequent steps.
-* Concourse will cache the `resource` output so that subsequent builds do not
-  have to run the `get` handler on a worker which has already fetched the same
-  version.
-
-Removing the syntactic sugar, you could also execute the `get` handler
-manually, like so:
-
-```yaml
-run: get
-type: git
-params:
-  uri: https://example.com/my-image-src
-  ref: v1.5.0
-output_mapping:
-  resource: my-image-src
-```
-
-This will circumvent the caching and auto-triggering and just run the `get`
-handler every time the build runs, as if it were a task.
+This example also makes use of resources, which are also implemented as
+prototypes with special pipeline pipeline semantics and step syntax. These
+"resource prototypes" are described in [RFC #38][rfc-38].
 
 
 ## Out of scope
@@ -542,3 +464,4 @@ handler every time the build runs, as if it were a task.
 [rfc-1]: https://github.com/concourse/rfcs/pull/1
 [rfc-1-comment]: https://github.com/concourse/rfcs/pull/1#issuecomment-477749314
 [rfc-24]: https://github.com/concourse/rfcs/pull/24
+[rfc-38]: https://github.com/concourse/rfcs/pull/38
