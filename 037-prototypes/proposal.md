@@ -147,7 +147,7 @@ type Object map[string]interface{}
 
 // InfoRequest is the payload written to stdin for the `./info` script.
 type InfoRequest struct {
-  // The properties specifying the object to act on.
+  // The object to act on.
   Object Object `json:"object"`
 
   // Configuration for handling TLS.
@@ -171,7 +171,7 @@ type InfoResponse struct {
 
 // MessageRequest is the payload written to stdin for a message.
 type MessageRequest struct {
-  // The properties specifying the object to act on.
+  // The object to act on.
   Object Object `json:"object"`
 
   // Configuration for handling TLS.
@@ -185,10 +185,10 @@ type MessageRequest struct {
 // by the message. Multiple responses may be written to the same file,
 // concatenated as a JSON stream.
 type MessageResponse struct {
-  // The identifying properties for the object.
+  // The object.
   Object Object `json:"object"`
 
-  // Metadata to associate with the properties. Shown to the user.
+  // Metadata to associate with the object. Shown to the user.
   Metadata []MetadataField `json:"metadata,omitempty"`
 }
 
