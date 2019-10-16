@@ -149,9 +149,6 @@ type Object map[string]interface{}
 type InfoRequest struct {
   // The object to act on.
   Object Object `json:"object"`
-
-  // Configuration for handling TLS.
-  TLS TLSConfig `json:"tls,omitempty"`
 }
 
 // InfoResponse is the payload written to stdout from the `./info` script.
