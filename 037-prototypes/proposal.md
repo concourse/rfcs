@@ -149,9 +149,13 @@ type Object map[string]interface{}
 type InfoRequest struct {
   // The object to act on.
   Object Object `json:"object"`
+
+  // Path to a file into which the prototype must write its InfoResponse.
+  ResponsePath string `json:"response_path"`
 }
 
-// InfoResponse is the payload written to stdout from the `./info` script.
+// InfoResponse is the payload written to the `response_path` in response to an
+// InfoRequest.
 type InfoResponse struct {
   // The version of the prototype interface that this prototype conforms to.
   InterfaceVersion string `json:"interface_version"`
@@ -174,7 +178,7 @@ type MessageRequest struct {
   // Configuration for handling TLS.
   TLS TLSConfig `json:"tls,omitempty"`
 
-  // Path to a file into which the message handler must write its response.
+  // Path to a file into which the message handler must write its MessageResponses.
   ResponsePath string `json:"response_path"`
 }
 
@@ -214,20 +218,25 @@ Prior to sending any message, the default command (i.e.
 will be executed with an `InfoRequest` piped to `stdin`. This request contains
 an **object**.
 
-The command must write an `InfoResponse` to `stdout` in response. This response
-specifies the prototype interface version that the prototype conforms to, an
-optional icon to show in the UI, and the messages supported by the given
-object.
+The command must write an `InfoResponse` to the file path specified by
+`response_path` in the `InfoRequest`. This response specifies the prototype
+interface version that the prototype conforms to, an optional icon to show in
+the UI, and the messages supported by the given object.
 
 ### Example **info** request/response
 
 Request sent to `stdin`:
 
 ```json
-{ "object": { "uri": "https://github.com/concourse/concourse" } }
+{
+  "object": {
+    "uri": "https://github.com/concourse/concourse"
+  },
+  "response_path": "../info/response.json"
+}
 ```
 
-Response written to `stdout`:
+Response written to `../info/response.json`:
 
 ```json
 {
