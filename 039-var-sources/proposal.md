@@ -184,4 +184,4 @@ this will vary between credential managers.
 [global-resources-opt-out]: https://concourse-ci.org/global-resources.html#some-resources-should-opt-out
 [issue-3023]: https://github.com/concourse/concourse/issues/3023
 [projects-rfc]: https://github.com/concourse/rfcs/pull/32
-[valid-identifier-rfc]: TODO
+[valid-identifier-rfc]: https://github.com/concourse/rfcs/pull/40
