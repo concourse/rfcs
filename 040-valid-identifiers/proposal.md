@@ -38,18 +38,30 @@ results in an inconsistent UX when using Concourse.
 
 This proposal is to dramatically reduce the allowed character set for Concourse
 identifiers, in the spirit of simplicity and consistency across Concourse
-usage:
+usage.
 
-* Any lowercase Unicode letter.
-* Any Unicode number.
-* `-`
+The following characters are to be allowed:
 
-With Go's [`re2`](https://github.com/google/re2/wiki/Syntax) syntax this would
-be represented by the following regular expression:
+* Lowercase Unicode letters.
+* Decimal numbers.
+* `-`, as the canonical word separator.
+* `.`, in order to support domain names and version numbers which may be
+  somewhat common.
+
+In addition, any identifier must start with a valid letter - not a digit or
+symbol. This is to disallow confusing names like `.` or `..`, which could be
+confused with directory syntax, and `123`, which would be parsed as a literal
+number in YAML syntax.
+
+With Go's [`re2`](https://github.com/google/re2/wiki/Syntax) syntax, a valid
+identifier would be matched by the following regular expression:
 
 ```re
-[\p{Ll}\p{Nd}\-]+
+^\p{Ll}[\p{Ll}\d\-.]*$
 ```
+
+Notably, `_` is forbidden. This is to further enforce consistency in word
+separators.
 
 ## Migrating existing data
 
