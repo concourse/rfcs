@@ -157,9 +157,6 @@ convenience. This RFC makes no judgment call on this because the utility of
 this will vary between credential managers.
 
 
-## Maintaining auth
-
-
 # Open Questions
 
 * How should pipeline-level credential managers differ in behavior from
