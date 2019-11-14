@@ -83,7 +83,7 @@ With Go's [`re2`](https://github.com/google/re2/wiki/Syntax) syntax, a valid
 identifier would be matched by the following regular expression:
 
 ```re
-^\p{Ll}[\p{Ll}\d\-.]*$
+^\p{L}[\p{L}\d\-.]*$
 ```
 
 This scheme is very similar to the [restrictions on valid
