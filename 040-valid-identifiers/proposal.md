@@ -90,7 +90,7 @@ This scheme is very similar to the [restrictions on valid
 hostnames][valid-hostnames], with the exception that any Unicode letter is
 allowed instead of `a-z`. This similarity is incidental, but it's a convenient
 comparison to draw as hostnames and Concourse identifiers have similar needs:
-to be used in URLs, to be referenced from the commandline (`fly`), and to be
+to be used in URLs, to be referenced from the commandline (`fly`), to be
 referenced in configuration (pipelines), and to be case-insensitive.
 
 ## Renaming existing data
