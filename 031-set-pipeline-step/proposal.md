@@ -54,7 +54,34 @@ plan:
 
 # Open Questions
 
-none
+* `set_pipeline: self`
+
+  Currently, the `foo` in `set_pipeline: foo` is the name of a pipeline to set.
+  A pipeline could technically update itself by configuring its own name in the
+  step, but pipeline configs aren't meant to contain their own name, as doing
+  so prevents the config from being re-used as a 'pipeline template'.
+
+  Are self-updating pipelines a feature that we want to explicitly support by
+  allowing the keyword `self` in place of the pipeline name?
+
+  The [Projects RFC][projects-rfc] outlines a more 'git-ops' style flow for
+  configuring pipelines, where instead of having pipelines self-update they are
+  all configured in one central place (the project's `plan:`).
+
+  Pros:
+
+  * Fairly straightforward semantics which seem to support a natural follow-up
+    question after learning about the `set_pipeline` step.
+  * Keyword use has precedent in `version: every`/`version: latest`/`inputs: all`.
+
+  Cons:
+
+  * Supporting both self-updating pipelines and projects could cause confusion
+    and fragmentation; it doesn't seem wise to have two competing approaches to
+    the same goal.
+  * Given that `self` isn't *critical* (it's easy to work around through
+    templating, i.e. `set_pipeline: ((name))`), is it worth the
+    risk/maintenance?
 
 
 # Answered Questions
@@ -65,6 +92,7 @@ none
 # New Implications
 
 ## Deprecating `concourse-pipeline` resource
+
 Deprecating the `concourse-pipeline` resource should be the primary goal.
 
 Some of the extended functionality of the resource will not be supported in the name of keeping the `set_pipeline` step design simple and easy to reason about.
@@ -72,3 +100,6 @@ Some of the extended functionality of the resource will not be supported in the 
 For example, the step should only ever configure one pipeline at a time - it should not support the `pipelines:` functionality for configuring a bunch at once.
 
 Similarly, the step should not support fully dynamic configuration (`pipelines_file:`).
+
+
+[projects-rfc]: https://github.com/concourse/rfcs/pull/32
