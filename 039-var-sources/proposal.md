@@ -99,9 +99,9 @@ the credential manager. This configuration should include any credentials
 necessary for authenticating with the credential manager.
 
 A var source's `config` may use `((vars))` to obtain its own credentials,
-either by using a different var source or by using the system-level credential
-manager. These may also be provided statically at pipeline-configuration time.
-Either way, the config will be encrypted when stored in the database.
+either using static templating or by using the system-level credential manager.
+Support for referencing sibling/parent var sources by name is an [open
+question](#question-var-sources-config-vars).
 
 ## `((var))` syntax
 
@@ -159,14 +159,73 @@ this will vary between credential managers.
 
 # Open Questions
 
-* How should pipeline-level credential managers differ in behavior from
-  system-level credential managers, if at all?
+* <a name="question-var-sources-config-vars"></a> What var sources can be used within a var source's `((config))`?
+
+  Credential manager configuration contains credentials, like so:
+
+  ```yaml
+  var_sources:
+  - name: vault
+    type: vault
+    config:
+      uri: https://vault.concourse-ci.org
+      client_token: some-client-token
+  ```
+
+  Naturally, `((vars))` would be used here so that the credential isn't
+  hardcoded into the pipeline:
+
+  ```yaml
+  var_sources:
+  - name: vault
+    type: vault
+    config:
+      uri: https://vault.concourse-ci.org
+      client_token: ((vault-client-token))
+  ```
+
+  It seems reasonable to allow this to be populated by a globally-configured
+  var source. Is there a use case for referencing a named var source?
+
+  There is precedent for this type of behavior in `resource_types`, where one
+  type can reference another type for its own `type`.
+
+  This could allow pipelines to use their own var sources to bootstrap:
+
+  ```yaml
+  var_sources:
+  - name: k8s
+    type: k8s
+    config: {in_cluster: true}
+  - name: vault
+    type: vault
+    config:
+      uri: https://vault.concourse-ci.org
+      client_token: ((k8s:vault-client-token))
+  ```
+
+  Pros:
+
+  * Being able to use your own var sources for each other's config minimizes
+    the domain of the system-level credential manager.
+  * Allows `((var))` syntax to consistently work the same way everywhere, vs.
+    only supporting system-level vars in parts of the pipeline.
+  * Could set a precedent for [project][projects-rfc]-level var sources being
+    used by pipeline-level var sources.
+
+  Cons:
+
+  * ?
+
+* Assuming `var_sources` can be configured at the [project][projects-rfc]-level
+  in the future, how should they interact with pipeline-level `var_sources`?
+
+  Should an ambiguity error be thrown if the same name is used?
+
+  Following on the previous question, can a pipeline-level var source use a
+  project-level var source in its `config`?
 
 * Should we allow multiple var sources to be configured at the system-level?
-
-* Assuming `var_sources` can be configured at the [project][projects-rfc]-level are also be configurable in the future,
-  how should they interact with pipeline-level `var_sources`? Should an
-  ambiguity error be thrown if the same name is used?
 
 * When and how often do we authenticate with each credential manager? If you're
   using Vault with a periodic token, something will have to continuously renew
