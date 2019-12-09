@@ -13,18 +13,25 @@ pipeline 'pipeline-name' archived
 
 Archived pipelines are permanently paused - no resource checking or job scheduling is performed. They should consume no scheduling resources - only database space for the build history.
 
-Archived pipelines may have their configuration stripped out, so that old credentials aren't stored forever.
+Archived pipelines may have their configuration stripped out so that credentials and other sensitive information isn't stored forever. (This also has the effect of making it impossible for the pipeline to accidentally run somehow.)
 
 Archived pipelines will be viewable in the web UI, but grouped into a separate section, hidden by default.
 
-Archived pipeline names exist in the same namespace as unarchived pipelines.
+Archived pipeline names exist in the same namespace as unarchived pipelines. They can still be navigated to and interacted with by their name.
 
-Archived pipelines become read-only, and allow only the following operations:
+## API implications
 
-* `fly rename-pipeline`, so that an archived pipeline can be renamed to "reclaim" its name if desired
-* `fly destroy-pipeline`, so that an archived pipeline can be removed "for good"
+Archived pipelines become read-only, to some extent. API operations that occur within the pipeline, such as triggering jobs and pinning/un-pinning resources, will be rejected. API operations to the pipeline itself behave as follows:
 
-Any web UI or `fly` interactions will fail at the API layer. Web UI elements may be hidden or disabled for archived pipelines.
+* All pipeline API objects will include a new field, `"archived": true/false`.
+* `SaveConfig` (i.e. `fly set-pipeline`, `set_pipeline` step) will work. See [Un-archiving](#un-archiving).
+* `ListAllPipelines`, `ListPipelines`, and `GetPipeline` will continue to return archived pipelines. Hiding archived pipelines is the job of the web UI and `fly`, not the API.
+* `DeletePipeline` will work, so that an archived pipeline can be removed for good.
+* `OrderPipelines` will work. The ordering of a pipeline is pretty unimpactful and users may want to order their archived pipelines too.
+* `PausePipeline` will reject the request; archived pipelines are permanently paused.
+* `UnpausePipeline` will reject the request; archived pipelines are permanently paused.
+* `ExposePipeline` and `HidePipeline` will still work.
+* `RenamePipeline` will work; this way an archived pipeline can be named something else so that its original name can be used for unrelated pipelines.
 
 ## Automatic archiving
 
@@ -56,6 +63,15 @@ This can be done by keeping track of which job created a pipeline, and which pip
 A pipeline will become un-archived when its pipeline is set once again, either through `fly set-pipeline` or through the `set_pipeline` step. This way we can ensure that there is a valid configuration when unarchiving (which allows us to clear out configuration and other unnecessary data when the pipeline is archived).
 
 This is also to support the use case of temporarily commenting out a `set_pipeline` step and then un-commenting it to bring it back.
+
+Because a pipeline becomes un-archived and re-configured in one fell swoop, it's possible that a user may unknowingly "reclaim" an old, archived, unrelated pipeline when really they just want to use the name again for a different pipeline.
+
+To make the behavior explicit, a prompt will be added to `fly set-pipeline` when it detects that the user is configuring an existing but archived pipeline. This is easy to detect, because `fly set-pipeline` already fetches the existing pipeline for diffing purposes. If `fly set-pipeline` is run with `--non-interactive`, the pipeline will be configured and unarchived without a prompt.
+
+The `set_pipeline` step's behavior will be consistent with `fly set-pipeline --non-interactive` as long as the archived pipeline was originally configured by the same job. This way things will "just work" in the happy path of commenting-out and then uncommenting a `set_pipeline` step.
+
+If the `set_pipeline` step notices that it's configuring an archived pipeline configured by a *different* job, or by no job, it will fail. The user will have to either rename or destroy the archived pipeline.
+
 
 # Open Questions
 
