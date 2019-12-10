@@ -112,35 +112,35 @@ to lay it all out.
 The full `((var))` syntax will be
 **`((VAR_SOURCE_NAME:SECRET_PATH.SECRET_FIELD))`**.
 
-### `VAR_SOURCE_NAME`
+* #### `VAR_SOURCE_NAME`
 
-The optional `VAR_SOURCE_NAME` segment specifies which named entry under
-`var_sources` to use for the credential lookup. If omitted (along with the
-`:`), the globally configured credential manager is used.
+  The optional `VAR_SOURCE_NAME` segment specifies which named entry under
+  `var_sources` to use for the credential lookup. If omitted (along with the
+  `:`), the globally configured credential manager is used.
 
-A `VAR_SOURCE_NAME` must be a valid identifier per concourse/rfcs#(TODO).
+  A `VAR_SOURCE_NAME` must be a valid identifier per concourse/rfcs#(TODO).
 
-### `SECRET_PATH`
+* #### `SECRET_PATH`
 
-The required `SECRET_PATH` segment specifies the secret to be fetched. This can
-either be a single word (`foo`) or a path (`foo/bar` or `/foo/bar`), depending
-on what lookup schemes are supported by the credential manager. For example,
-Vault and CredHub have path semantics whereas Kubernetes and Azure KeyVault
-only support simple names.
+  The required `SECRET_PATH` segment specifies the secret to be fetched. This can
+  either be a single word (`foo`) or a path (`foo/bar` or `/foo/bar`), depending
+  on what lookup schemes are supported by the credential manager. For example,
+  Vault and CredHub have path semantics whereas Kubernetes and Azure KeyVault
+  only support simple names.
 
-For credential managers which support path-based lookup, a `SECRET_PATH`
-without a leading `/` may be queried relative to a predefined set of path
-prefixes. This is how the Vault credential manager currently works; `foo` will
-be queried under `/concourse/(team name)/(pipeline name)/foo`. See [Path lookup
-rules](#path-lookup-rules) for more information.
+  For credential managers which support path-based lookup, a `SECRET_PATH`
+  without a leading `/` may be queried relative to a predefined set of path
+  prefixes. This is how the Vault credential manager currently works; `foo` will
+  be queried under `/concourse/(team name)/(pipeline name)/foo`. See [Path lookup
+  rules](#path-lookup-rules) for more information.
 
-### `SECRET_FIELD`
+* #### `SECRET_FIELD`
 
-The optional `SECRET_FIELD` specifies a field on the fetched secret to read. If
-omitted, the credential manager may choose to read a 'default field' from the
-fetched credential, if it exists. For example, the Vault credential manager
-will return the value of the `value` field if present. This is useful for
-simple single-value credentials.
+  The optional `SECRET_FIELD` specifies a field on the fetched secret to read. If
+  omitted, the credential manager may choose to read a 'default field' from the
+  fetched credential, if it exists. For example, the Vault credential manager
+  will return the value of the `value` field if present. This is useful for
+  simple single-value credentials.
 
 ## Credential manager secret lookup rules
 
@@ -156,89 +156,95 @@ Credential managers may still choose to have default path lookup schemes for
 convenience. This RFC makes no judgment call on this because the utility of
 this will vary between credential managers.
 
+## Inter-dependent var sources
+
+Var source configuration tends to contain credentials, like so:
+
+```yaml
+var_sources:
+- name: vault
+  type: vault
+  config:
+    uri: https://vault.concourse-ci.org
+    client_token: some-client-token
+```
+
+Naturally, `((vars))` would be used here so that the credential isn't
+hardcoded into the pipeline:
+
+```yaml
+var_sources:
+- name: vault
+  type: vault
+  config:
+    uri: https://vault.concourse-ci.org
+    client_token: ((vault-client-token))
+```
+
+Building on this, a var source could also use another var source in order to
+obtain its credentials:
+
+```yaml
+var_sources:
+- name: k8s
+  type: k8s
+  config: {in_cluster: true}
+- name: vault
+  type: vault
+  config:
+    uri: https://vault.concourse-ci.org
+    client_token: ((k8s:vault-client-token))
+```
+
+There is precedent for this type of behavior in `resource_types`, where one
+type can reference another type for its own `type`.
+
+Cycles can be avoided by having a var source 'ignore' itself when resolving its
+own config. This is the same way that cycles are handled with `resource_types`.
+
+Take the following example:
+
+```yaml
+var_sources:
+- name: source-1
+  type: source-1
+  config: {foo: ((source-2:bar))}
+- name: source-2
+  type: source-2
+  config:
+  config: {foo: ((source-1:bar))}
+```
+
+In this setup, rather than going into a loop, both var sources would fail to be
+configured. The `source-1` var source would fail because it can't find
+`source-1` when trying to resolve the config for `source-2`, and vice-versa.
+
 
 # Open Questions
 
-* <a name="question-var-sources-config-vars"></a> What var sources can be used within a var source's `((config))`?
+n/a
 
-  Credential manager configuration contains credentials, like so:
-
-  ```yaml
-  var_sources:
-  - name: vault
-    type: vault
-    config:
-      uri: https://vault.concourse-ci.org
-      client_token: some-client-token
-  ```
-
-  Naturally, `((vars))` would be used here so that the credential isn't
-  hardcoded into the pipeline:
-
-  ```yaml
-  var_sources:
-  - name: vault
-    type: vault
-    config:
-      uri: https://vault.concourse-ci.org
-      client_token: ((vault-client-token))
-  ```
-
-  It seems reasonable to allow this to be populated by a globally-configured
-  var source. Is there a use case for referencing a named var source?
-
-  There is precedent for this type of behavior in `resource_types`, where one
-  type can reference another type for its own `type`.
-
-  This could allow pipelines to use their own var sources to bootstrap:
-
-  ```yaml
-  var_sources:
-  - name: k8s
-    type: k8s
-    config: {in_cluster: true}
-  - name: vault
-    type: vault
-    config:
-      uri: https://vault.concourse-ci.org
-      client_token: ((k8s:vault-client-token))
-  ```
-
-  Pros:
-
-  * Being able to use your own var sources for each other's config minimizes
-    the domain of the system-level credential manager.
-  * Allows `((var))` syntax to consistently work the same way everywhere, vs.
-    only supporting system-level vars in parts of the pipeline.
-  * Could set a precedent for [project][projects-rfc]-level var sources being
-    used by pipeline-level var sources.
-
-  Cons:
-
-  * ?
-
-* Assuming `var_sources` can be configured at the [project][projects-rfc]-level
-  in the future, how should they interact with pipeline-level `var_sources`?
-
-  Should an ambiguity error be thrown if the same name is used?
-
-  Following on the previous question, can a pipeline-level var source use a
-  project-level var source in its `config`?
-
-* Should we allow multiple var sources to be configured at the system-level?
-
-* When and how often do we authenticate with each credential manager? If you're
-  using Vault with a periodic token, something will have to continuously renew
-  the token.
-
-  Will the `web` node have to maintain long-lived clients for accessing each
-  configured credential manager across all teams? Is that going to be a
-  scalability concern? Is that going to be a security concern? (Can it be
-  avoided?)
 
 # Answered Questions
 
-* n/a
+* > Assuming `var_sources` can be configured at the [project](https://github.com/concourse/rfcs/pull/32)-level in the future, how should they interact with pipeline-level `var_sources`?
+
+  > Should we allow multiple var sources to be configured at the system-level?
+
+  Let's avoid these concerns for the first pass as they just raise more questions around named var scoping and they're not proven necessary at the moment.
+
+* > What var sources can be used within a var source's ((config))?
+
+  See [Inter-dependent var sources](#inter-dependent-var-sources).
+
+* > When and how often do we authenticate with each credential manager? If
+  > you're using Vault with a periodic token, something will have to continuously
+  > renew the token.
+
+  The implementation maintains an auth loop for each configured var source,
+  anonymously identified by their configuration. Var sources that are not used
+  for a certain TTL are closed, terminating their auth loop.
+
 
 [global-resources-opt-out]: https://concourse-ci.org/global-resources.html#some-resources-should-opt-out
 [issue-3023]: https://github.com/concourse/concourse/issues/3023
