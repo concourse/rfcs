@@ -33,11 +33,9 @@ fly archive-pipeline -p branch -i branch:feature/foo
 
 ## Automatic archival
 
-When used with the `set_pipeline` step ([RFC #31](https://github.com/concourse/rfcs/pull/31)), instanced pipelines take on additional behavior.
+Instanced pipelines build on the automatic pipeline archiving introduced in [RFC #33](https://github.com/concourse/rfcs/pull/33). Individual pipeline instances that are no longer configured will be automatically archived in the same way that normal pipelines would.
 
-At the end of a build which uses `set_pipeline`, all instances of the named pipelines which were not configured by the build will be automatically archived.
-
-For example, say I have a job which I use to automatically configure my pipelines:
+For example, say I have a job whose build plan configures a pipeline instance for each supported version:
 
 ```yaml
 plan:
@@ -52,7 +50,7 @@ plan:
     version: 5.2
 ```
 
-Let's say I ship a `5.5` version. Assuming my policy is to only support the last 2 versions, I would update the config like so:
+Let's say I ship a `5.5` version, and my policy is to only support the last 2 versions. I would update the config like so:
 
 
 ```yaml
@@ -70,6 +68,7 @@ plan:
 
 When this build runs, the `version: 5.2` instance will be automatically archived.
 
+
 # New Implications
 
-This functionality will be more and more useful as we expand Concourse's vocabulary to support pipeline automation. Spatial resources ([RFC #26](https://github.com/concourse/rfcs/pull/26)), for example, can be used to automatically configure a pipeline for each branch or PR. When the branch or PR goes away, their pipeline instances will be archived automatically.
+This functionality will be more and more useful as we expand Concourse's vocabulary to support pipeline automation. Spatial resources ([RFC #29](https://github.com/concourse/rfcs/pull/29)), for example, can be used to automatically configure a pipeline for each branch or PR. When the branch or PR goes away, their pipeline instances will be archived automatically.
