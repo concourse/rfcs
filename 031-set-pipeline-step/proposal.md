@@ -40,7 +40,7 @@ The pipeline would be automatically unpaused, as opposed to `fly set-pipeline` w
 
 ## `((vars))` support
 
-Additionally, we should support `vars` (as in `fly set-pipeline -y`) and `vars_files` (i.e. `fly set-pipeline -l`):
+Additionally, we should support `vars` (as in `fly set-pipeline -y`) and `var_files` (i.e. `fly set-pipeline -l`):
 
 ```yaml
 plan:
@@ -48,7 +48,7 @@ plan:
 - set_pipeline: release
   file: ci/pipelines/release.yml
   vars: {release_version: 5.3}
-  vars_files:
+  var_files:
   - ci/pipelines/vars/foo.yml
 ```
 
