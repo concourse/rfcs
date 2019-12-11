@@ -54,6 +54,11 @@ plan:
 
 # Open Questions
 
+* Should we prevent pipelines configured via a `set_pipeline` step from being
+  updated manually through `fly set-pipeline`?
+
+  Or should we emit a warning?
+
 * `set_pipeline: self`
 
   Currently, the `foo` in `set_pipeline: foo` is the name of a pipeline to set.
