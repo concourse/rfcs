@@ -50,6 +50,15 @@ email "subject" and "body", maybe even "to", "cc", e.g.. The resource `email`
 no longer needs to read files by itself. Also, the pipeline code looks more
 clear.
 
+## Restriction on names
+
+Each `input_vars` in a pipeline should have an unique name, and name should not
+duplicate to any `var_source` name either. Because the syntax of a var, 
+`((source_name:var_name))`, is not able to tell if a `source_name` is 
+`var_source` or `input_vars`. So that duplicate names between `var_source` and
+`input_vars` will make implementation to not be able decide from which source
+to fetch value for the var.
+
 ## Syntax
 
 A `input_vars` is an array, each element contains two attributes: 
