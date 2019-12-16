@@ -33,9 +33,7 @@ policy managers than OPA.
 
 ## Policy check points
 
-* Concourse has implemented the audit function. Each action, e.g. `set-pipeline`, 
-generates an audit log. Policy checks can be done right before writing audit logs.
-So that all actions that are audited will also go through policy checks.
+* All API calls, for example `set-pipeline`, will also go through policy checks.
 * Because Concourse supports task file, and task file is only fetched at runtime.
 The action `set-pipeline` has no access to task files. To support policy check 
 against tasks, a policy check should be invoked before a task run starts.
