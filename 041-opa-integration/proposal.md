@@ -119,19 +119,18 @@ methods`, so that `GET` actions will not go through policy check.
 User also may specifically want to or don't want to do run policy check against
 certain actions. For example, a cluster will want to check policy against only
 `SetPipeline`, or the other cluster don't want to check policy against `RunTask`,
-which can be solved by white list and black list. Two more filters, `policy-
-check-filter-action-white-list` and `policy-check-filter-action-black-list` are
-supported. If an action is defined in white list, then the action will always
-go through policy check, vice versa for black list. 
+for which two more filters, `policy-check-filter-action` and `policy-check-
+filter-action-skip` are supported. If an action is defined in action list, then 
+the action will always go through policy check, vice versa for action-skip list. 
 
 In summary, where are three policy check filters:
 
 * `policy-check-filter-http-methods`: defines HTTP methods of actions that
 should go through policy checks. Default to empty list.
-* `policy-check-filter-action-white-list`: defines action names that should
-always go through policy checks. Default to empty list.
-* `policy-check-filter-action-black-list`: defines action names that should
-never go through policy checks. Default to empty list.
+* `policy-check-filter-action`: defines action names that should always go 
+through policy checks. Default to empty list.
+* `policy-check-filter-action-skip`: defines action names that should never 
+go through policy checks. Default to empty list.
 
 
 # Open Questions
