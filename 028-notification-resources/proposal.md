@@ -5,6 +5,7 @@ This proposal uses the [generalized resource interface](../024-generalized-resou
 ## Motivation
 
 * Support notifications in a way that doesn't pollute pipeline config and UI: [concourse/concourse#1052](https://github.com/concourse/concourse/issues/1052), [concourse/rfcs#10](https://github.com/concourse/rfcs/issues/10)
+* Support notifying on state change only (i.e. don't spam on 'fail', 'fail', 'fail').
 
 ## Proposal
 
