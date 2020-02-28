@@ -33,19 +33,8 @@ Concourse constructs that makes it a more native citizen in the "ecosystem".
 ```
 
 
-ps.: this is *not* about the runtime aspect of Concourse - going from a build
-plan to steps that at some point run as pods in a Kubernetes cluster is in the
-realm of [rfc: how do we best leverage k8s as a runtime] and [k8s-based
-implementation of atc's worker iface] instead.
-
 pps.: prior work https://github.com/jchesterpivotal/knative-build-pipeline-poc
 
-
-[kpack]: https://github.com/pivotal/kpack
-[Kubernetes]: https://kubernetes.io/
-[custom resources]: https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
-[k8s-based implementation of atc's worker iface]: https://github.com/concourse/concourse/issues/5209
-[rfc: how do we best leverage k8s as a runtime]: https://github.com/concourse/rfcs/pull/22
 
 
 # What this is *not* about
@@ -59,13 +48,33 @@ This proposal DOES NOT try encompass:
   this proposal.
 
 
+- the runtime aspect of Concourse - going from a build plan to steps that at
+  some point run as pods in a Kubernetes cluster is in the realm of [rfc: how do
+  we best leverage k8s as a runtime] and [k8s-based implementation of atc's
+  worker iface] instead.
+
 [operator pattern]: https://kubernetes.io/docs/concepts/extend-kubernetes/operator/
+[kpack]: https://github.com/pivotal/kpack
+[Kubernetes]: https://kubernetes.io/
+[custom resources]: https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
+[k8s-based implementation of atc's worker iface]: https://github.com/concourse/concourse/issues/5209
+[rfc: how do we best leverage k8s as a runtime]: https://github.com/concourse/rfcs/pull/22
 
 
 # Motivation
 
-1. A Concourse installation cannot be automatically set up with a set of
-   pipelines without some form of manual bootstrap.
+### kubernetes native integration
+
+Tools that expect to interact with applications that run on Kubernetes through
+Kubernetes objects are not able to do so without some form of a translation
+layer.
+
+
+
+### automatically setting up pipelines
+
+**1. A Concourse installation cannot be automatically set up with a set of
+pipelines without some form of manual bootstrap.**
 
 Concourse has always been about being able to continuously doing things, with
 the definition of that automation coming right from code.
@@ -88,14 +97,13 @@ each team.
 [ci.concourse-ci.org]: https://ci.concourse-ci.org
 
 
-2. Tools that expect to interact with applications that run on Kubernetes through
-   Kubernetes objects are not able to do so without some form of a translation
-   layer.
+### yet another RBAC
 
 3. Not having our API described as Kubernetes resources makes those running
    Concourse on Kubernetes to not be able to leverage already-existing RBAC
    mechanisms that might already have been setup for teams that use a given
    cluster.
+
 
 
 # Proposal
