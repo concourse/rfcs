@@ -2,6 +2,10 @@ RFC: pipeline custom resource definition
 
 # Summary
 
+**This RFC proposes the implementation of a `pipelines` custom resource, having
+a controller that could act upon a `Pipeline` kind to save a pipeline
+configuration in a Concourse installation.**
+
 In a world where Concourse is part of a suite of other applications in
 [Kubernetes] which all speak "the kubernetes language" (are somehow setup
 through the use of Kubernetes objects), e.g. [kpack], having Concourse also
@@ -31,10 +35,6 @@ Concourse constructs that makes it a more native citizen in the "ecosystem".
           <= gives the feedback through status updates in
              the pipeline obj
 ```
-
-**This RFC proposes the implementation of a `pipelines` custom resource
-definition having a controller that could act upon a `Pipeline` kind to save a
-pipeline configuration in a Concourse installation.**
 
 
 ps.: proof-of-concept based on @jchesterpivotal's prior work:
