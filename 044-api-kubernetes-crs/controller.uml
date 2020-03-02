@@ -1,0 +1,56 @@
+@startuml
+
+	actor User
+	control Informer
+	participant Kubernetes
+	participant Controller
+	participant Concourse
+
+
+	autoactivate on
+
+	User -> Kubernetes : Pipeline
+
+		Kubernetes -> Controller : Mutate
+		note right
+			   could perhaps interpolate 
+			   local variables?
+		end note
+		Controller --> Kubernetes : Ok
+
+
+		Kubernetes -> Controller: Admit
+		note right
+			   could validate the 
+			   pipeline config?
+		end note
+		Controller --> Kubernetes: Ok
+
+	Kubernetes --> User: Ok
+
+	...
+
+	Informer -> Controller : Reconcille
+
+		Controller -> Kubernetes : Get Pipeline K8s Object
+		Kubernetes --> Controller: Pipeline Spec
+
+		Controller -> Concourse : Set Pipeline
+		Concourse --> Controller: Ok
+
+		alt paused==false
+			Controller -> Concourse : Unpause Pipeline
+			Concourse --> Controller : Ok
+		end
+
+		alt public==true
+			Controller -> Concourse : Expose Pipeline
+			Concourse --> Controller : Ok
+		end
+
+		Controller -> Kubernetes : Update Status
+		Kubernetes --> Controller: Ok
+
+	deactivate
+
+@enduml
