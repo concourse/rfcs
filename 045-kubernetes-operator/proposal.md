@@ -198,6 +198,8 @@ switching a flag on the Kubernetes object that represents that installation
 Have a Concourse [Kubernetes Operator] to deal with the whole deployment of
 Concourse on Kubernetes installations.
 
+### creation
+
 At a high-level, one should be able to submit to a Kubernetes cluster an
 object that represents a Concourse installation:
 
@@ -229,9 +231,20 @@ actual deployment.
 ![](./creation.svg)
 
 
+### update
+
+
 With an installation up and running, those admins wanting to perform updates,
 would then update that original spec (`kind: Concourse`), which our controller
-would react to:
+would react to.
+
+Having knowledge of which version of Concourse one currently is, and to which
+it's going to, it could verify if the downgrade migrations need to be run or
+not.
+
+Being told other information (like, "this cluster should be in maintenance
+mode"), it could take care of touching the right Concourse endpoints and making
+it so.
 
 
 ![](./updates.svg)
@@ -251,28 +264,40 @@ the tool we use for that.
 
 ### what about postgresql?
 
-TODO
+I'm not very sure yet.
 
-i. provide credentials, etc to a pg that has already been installed
-ii. use something like crossplane
+Currently, the [Concourse Helm Chart] declares a subchart that by default brings
+up postgres (see [PostgreSQL chart]).
+
+If we assume that the Concourse chart would be responsible simply for bringing
+the necessary manifests to get the Concourse operator up, we'd need something
+else to bring Postgres up whenever requesting a Concourse cluster too.
+
+For this, I see three options:
+
+1. the Concourse operator bringing Postres up and managing it
+2. accepting credentials and not dealing with that problem
+
+While `1` can be tempting for a smooth and simple day one experience, Postgres
+is its own beast that might get tricky to manage (e.g., in our own installations we
+let Google deal with it by using CloudSQL).
+
+For `2`, there are few options:
+
+2.1. operators that take care of managing Postgres (e.g., https://github.com/zalando/postgres-operator)
+2.2. using an operator that provisions Postgres in cloud provides (e.g.,
+[Crossplane])
+
+This way, when creating a `Concourse` manifest, one could also create a
+`PostgreSQL` manifest and give Concourse the result of that (the credentials).
 
 
 # Answered Questions
 
-> If there were any major concerns that have already (or eventually, through
-> the RFC process) reached consensus, it can still help to include them along
-> with their resolution, if it's otherwise unclear.
->
-> This can be especially useful for RFCs that have taken a long time and there
-> were some subtle yet important details to get right.
->
-> This may very well be empty if the proposal is simple enough.
 
 
 # New Implications
 
-> What is the impact of this change, outside of the change itself? How might it
-> change peoples' workflows today, good or bad?
 
 
 [ATC]: https://concourse-ci.org/architecture.html#component-atc
@@ -286,3 +311,5 @@ ii. use something like crossplane
 [downgrading]: https://concourse-ci.org/concourse-web.html#downgrading
 [rotating the encryption key]: https://concourse-ci.org/encryption.html#rotating-the-encryption-key
 [Kubernetes Operator]: https://kubernetes.io/docs/concepts/extend-kubernetes/operator/
+[Crossplane]: https://crossplane.io/
+[PostgreSQL chart]: https://github.com/helm/charts/blob/master/stable/postgresql/README.md
