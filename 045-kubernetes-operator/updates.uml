@@ -1,0 +1,64 @@
+@startuml
+
+  title updates
+
+	actor User
+	control Informer
+	participant Kubernetes
+	participant Controller
+	participant Concourse
+
+
+	autoactivate on
+
+	User -> Kubernetes : Concourse
+
+		Kubernetes -> Controller: Admit
+		note right
+			   validate the configuration
+		end note
+		Controller --> Kubernetes: Ok
+
+	Kubernetes --> User: Ok
+
+	...
+
+	Informer -> Controller : Reconcille
+
+		Controller -> Kubernetes : Get Concourse K8s Object
+		Kubernetes --> Controller: Concourse Spec
+
+    alt any operations needed against the running cluster?
+
+      alt rolling back?
+        Controller -> Concourse : Concourse Migrate
+        Concourse --> Controller : Ok
+      end
+
+      alt maintenance mode?
+        Controller -> Concourse : Disable Scheduler & Lidar
+        Concourse --> Controller : Ok
+
+        Controller -> Concourse : Set Wall
+        Concourse --> Controller : Ok
+      end
+
+      Controller -> Kubernetes : Send Events
+      Kubernetes --> Controller: Admitted
+
+    end
+
+		Controller -> Kubernetes : Deployment, Service, etc
+		note right
+			   update the resources that
+         deploy the pods, set the
+         connectivity, etc.
+		end note
+		Kubernetes --> Controller: Admitted
+
+		Controller -> Kubernetes : Update Status
+		Kubernetes --> Controller: Ok
+
+	deactivate
+
+@enduml
