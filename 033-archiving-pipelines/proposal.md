@@ -11,7 +11,7 @@ $ fly -t ci archive-pipeline -p pipeline-name
 pipeline 'pipeline-name' archived
 ```
 
-Archived pipelines are permanently paused - no resource checking or job scheduling is performed. They should consume no scheduling resources - only database space for the build history.
+Archived pipelines are permanently paused - no resource checking or job scheduling is performed. They should consume no scheduling resources - only database space for the build history. Note that, with the exception of the behaviour of `CreateJobBuild` (outlined below), any behaviour associated with paused pipelines should be inherited by archived pipelines (things like resource checking and garbage collection included).
 
 Archived pipelines may have their configuration stripped out so that credentials and other sensitive information isn't stored forever. (This also has the effect of making it impossible for the pipeline to accidentally run somehow.)
 
@@ -32,6 +32,10 @@ Archived pipelines become read-only, to some extent. API operations that occur w
 * `UnpausePipeline` will reject the request; archived pipelines are permanently paused.
 * `ExposePipeline` and `HidePipeline` will still work.
 * `RenamePipeline` will work; this way an archived pipeline can be named something else so that its original name can be used for unrelated pipelines.
+* `GetConfig` will 404; when a pipeline is archived its config is removed to avoid leaking sensitive information. Any other read operation scoped to the pipeline should work.
+* `CreateJobBuild` will error; archived pipelines must consume no scheduling resources, not even the build starter.
+* `CheckResource` and `CheckResourceType` will error; archived pipelines must consume no scheduling resources, including queuing checks.
+* `PinResourceVersion`, `UnpinResource`, `EnableResourceVersion`, `DisableResourceVersion`, and `SetPinCommentOnResource` will error; archived pipelines are read-only. Assume that pins, comments, and enabled/disabled versions persist when a pipeline is unarchived.
 
 ## Automatic archiving
 
@@ -61,6 +65,8 @@ This can be done by keeping track of which job created a pipeline, and which pip
 ## Un-archiving
 
 A pipeline will become un-archived when its pipeline is set once again, either through `fly set-pipeline` or through the `set_pipeline` step. This way we can ensure that there is a valid configuration when unarchiving (which allows us to clear out configuration and other unnecessary data when the pipeline is archived).
+
+Note that when a pipeline is un-archived by this process it is paused. This is symmetrical with the fact that pipelines begin their life in the paused state.
 
 This is also to support the use case of temporarily commenting out a `set_pipeline` step and then un-commenting it to bring it back.
 
