@@ -43,30 +43,23 @@ I think there's a lot of value in placing control over these things in the hands
 
 # Proposal
 
-Broadly, we need a solution that lets operators choose whether they want to run the various Concourse computations in `ifrit/grouper.Members` or actual separate unix processes -- these things are supposed to be nearly-interchangeable concepts anyway.
+Broadly, we need a solution that lets operators choose whether they want to run the various Concourse computations in `ifrit/grouper.Members` or actual separate unix processes -- these things are supposed to be nearly-interchangeable concepts anyway. We could provide this configurability at many levels of granularity, so let's focus this RFC on a simple case.
 
-## More subcommands
+## Frontend and Backend
 
-Concretely, I want finer-grained `concourse` subcommands besides `quickstart`, `web` and `worker`. I want a bit more - if we look through the past at events where a new "member" was added, I want to know that there will always be a sub-command for it.
+Concretely, I want finer-grained `concourse` subcommands besides `quickstart`, `web` and `worker`. Let's add two more:
 
-As an initial iteration, why not the following:
-* `concourse ui` for the frontend, web handlers
-* `concourse api` for the http and https servers
+* `concourse frontend` for the http and https servers serving the API and web UI
 * `concourse backend` for the scheduler/gc/logcollector/syslogdrainer/etc
-* `concourse gateway` for the TSA
 
-## More flags
+Ideally each of these subcommands should really only be concerned with its own configuration - i.e. there's no need to configure a gc interval on the frontend. However, they will have some overlapping configuration (like the database) that will need to be duplicated.
 
-Another option, rather than aggressively creating these subcommands , we could add flags to enable/disable each one. Then operators could add a `DISABLE_*` env var when they suspected a component might be misbehaving, or they could set up deployment manifests where each member was running in a separate process/container by carefully toggling all the members but one at a time.
+Furthermore, `concourse web` should continue to behave the same as it does now. 
+
+This would coarsely solve the problem posed in the above narrative - we could have quickly diagnosed that the memory consumption was coming from the `frontend` process.
 
 # Open Questions
-
-I know, it's basically "microservices with a shared database", but that's pretty much what our architecture has already been anyway.
-
-Maybe this approach could lead to each member maintaining its own persistence? Moving towards a (hopefully more effective) distributed persistence solution? If we knew that there was a strongish decoupling between the build event server and the rest of the system (like it was the only one that did reads on the `build_events` table), maybe this would open the possibility of configuring a different storage backend (like a blobstore or a [second postgres](https://github.com/concourse/concourse/issues/5306) or what have you)
 
 # Answered Questions
 
 # New Implications
-
-Do we go all-in on microservices accoutrements? Service discovery? A message bus? the 'components' table is pretty much a service registry, as far as I understand the concept. the TSA is a decent choice for a service registry API server, since it's already expected that it will be publicly reachable for worker registration.
