@@ -37,7 +37,7 @@ to the JSON object.
 
 # Open Questions
 
-_Couldn't think of any_
+* What format should we use? e.g. There's the [jsonAPI spec](https://jsonapi.org/format/#errors)
 
 # Answered Questions
 
