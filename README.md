@@ -95,7 +95,7 @@ the following labels:
 
 These labels mark the beginning of the final phase of the RFC. During this
 point, any additional feedback will be sought out by communicating it on our
-[blog](https://medium.com/concourse-ci).
+[blog](https://blog.concourse-ci.org).
 
 There will then be a two-week quiet period on the RFC. If during this time
 there is a challenge to the resolution, the label will be removed and the RFC
