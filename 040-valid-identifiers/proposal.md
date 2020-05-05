@@ -141,7 +141,22 @@ as a result?
 
 # Answered Questions
 
-* n/a
+* **What about pipelines that use symbols as delimiters?**
+
+  A common practice today is to configure many pipelines with a specific naming
+  scheme, e.g.:
+
+  * `dependency:github.com-username-repo-1`
+  * `dependency:github.com-username-repo-2`
+
+  Rather than cramming data into the pipeline name (and having to sanitize it),
+  this should probably be resolved through use of [instanced
+  pipelines](https://github.com/concourse/rfcs/pull/34).
+
+  This would immediately improve the UX: pipeline names will be much shorter,
+  related pipelines will be grouped together, the values no longer have to be
+  sanitized, and the pipeline name is now just `dependency`, conforming to this
+  RFC.
 
 
 # New Implications
