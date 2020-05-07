@@ -61,6 +61,14 @@ plan:
 
   Or should we emit a warning?
 
+* Should we support glob expansion in `var_files`?
+
+  The `concourse-pipeline` resource supports this by just performing glob
+  expansion against its local filesystem. For the `set_pipeline` step, this is
+  a bit more challenging - there *is* no local filesystem. Would we have to
+  implement glob expansion in the Baggageclaim API or something? How easily
+  would this translate to other runtimes?
+
 * `set_pipeline: self`
 
   Currently, the `foo` in `set_pipeline: foo` is the name of a pipeline to set.
