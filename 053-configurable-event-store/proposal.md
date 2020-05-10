@@ -7,8 +7,8 @@ and to provide a general mechanism for processing build events.
 # Motivation
 
 The first (and primary) motivation for this change is to allow operators to
-configure and external data store for build events. They may want to do this
-for a number of reasons:
+configure external data store for build events. They may want to do this for a
+number of reasons:
 
 1. Builds can generate an enormous amount of build events - storing everything
    in the same database as all of the other core-Concourse information means
@@ -96,7 +96,7 @@ Let's unpack each function:
   created when the team/pipeline is first created, but it shouldn't really have
   much impact.
 
-* Finalize(build db.Build)` will be triggered when a build is `Finish`ed. No
+* `Finalize(build db.Build)` will be triggered when a build is `Finish`ed. No
   build events may be `Put` into the store after this is called. For
   `Postgres`, this involves dropping the `build_event_id_seq_x` sequence.
 
@@ -119,33 +119,33 @@ Let's unpack each function:
   var cursor Key
   batchSize := 1000
   for {
-    events, err := eventStore.Get(build, batchSize, &cursor)
-    if err != nil {
-        panic(err)
-    }
-    // process events here
-    if len(events) < batchSize {
-        // there are no more events (see below)
-        break
-    }
+      events, err := eventStore.Get(build, batchSize, &cursor)
+      if err != nil {
+          panic(err)
+      }
+      // process events here
+      if len(events) < batchSize {
+          // there are no more events (see below)
+          break
+      }
   }
   ```
 
   However, when possible, consumers of these build events should prefer to use
-`db.Build.Events()`, which queryies the `EventStore` and subscribes to a
-notification bus to allow tracking in-progress builds (more on this in
-[Notifications](#notifications)).
+  `db.Build.Events()`, which queries the `EventStore` and subscribes to a
+  notification bus to allow tracking in-progress builds (more on this in
+  [Notifications](#notifications)).
 
   `Get` also takes in `requested` number of events to fetch. This is a soft
   limit. To explain what I mean by this, suppose there are `n` events available
   in the `EventStore` (after the `cursor`):
   * If `n < requested`, `Get(...)` should return all `n` events
-  * If `n >= requested`, Get(...)` should return at least `requested` events,
-    but may more than `requested` if convenient (i.e. may return `requested <=
-    x <= n`). If the backend store doesn't provide an easy way to read exactly
-    `requested` elements, and the `EventStore` reads in a chunk of data that
-    results in more than `requested` events, there's no use in throwing the extra
-    events away.
+  * If `n >= requested`, `Get(...)` should return at least `requested` events,
+    but may return more than `requested` if convenient (i.e. it may return
+    `requested <= x <= n`). If the backend store doesn't provide an easy way to
+    read exactly `requested` elements, and the `EventStore` reads in a chunk of
+    data that results in more than `requested` events, there's no use in throwing
+    the extra events away.
 
 * `Delete(builds []db.Builds)` deletes the build events for a list of builds.
   This is used by the build log collector.
@@ -234,7 +234,7 @@ type ColdStorage interface {
 
 type ColdStorageEventStore struct {
     EventStore
-    coldStorage ColdStorage
+    ColdStorage ColdStorage
 }
 
 func (c *ColdStorageEventStore) Finalize(build Build) error {
@@ -246,7 +246,7 @@ func (c *ColdStorageEventStore) Finalize(build Build) error {
 }
 
 func (c *ColdStorageEventStore) migrateToColdStorage(build Build) error {
-    file, err := c.coldStorage.Open(fmt.Sprintf("build_%d", build.ID()))
+    file, err := c.ColdStorage.Open(fmt.Sprintf("build_%d", build.ID()))
     if err != nil {
         return err
     }
@@ -297,7 +297,7 @@ func (c *ColdStorageEventStore) Get(build Build, requested int, cursor *Key) ([]
 }
 
 func (c *ColdStorageEventStore) readFromColdStorage(build Build) ([]event.Envelope, error) {
-    file, err := c.coldStorage.Open(fmt.Sprintf("build_%d", build.ID()))
+    file, err := c.ColdStorage.Open(fmt.Sprintf("build_%d", build.ID()))
     if err != nil {
         return nil, err
     }
@@ -342,31 +342,31 @@ Note that `EventStore` implementations don't need to think about notifications
 ```go
 func (b *build) SaveEvent(event atc.Event) error {
     // use the `EventStore` to save
-	err := b.eventStore.Put(b, event)
-	if err != nil {
-		return err
-	}
+    err := b.eventStore.Put(b, event)
+    if err != nil {
+        return err
+    }
     // ...but notify the main Postgres DB's notification bus.
-	return b.conn.Bus().Notify(buildEventsNotificationChannel(b.ID()))
+    return b.conn.Bus().Notify(buildEventsNotificationChannel(b.ID()))
 }
 ```
 
 ```go
 func (b *build) Events(from uint) (EventSource, error) {
-	notifier, err := newConditionNotifier(b.conn.Bus(), buildEventsNotificationChannel(b.ID()), func() (bool, error) {
-		return true, nil
-	})
-	if err != nil {
-		return nil, err
-	}
+    notifier, err := newConditionNotifier(b.conn.Bus(), buildEventsNotificationChannel(b.ID()), func() (bool, error) {
+        return true, nil
+    })
+    if err != nil {
+        return nil, err
+    }
 
-	return newBuildEventSource(
-		b,
-		b.conn,
-		b.eventStore, // fetch events from the EventStore using EventStore.Get(...)
-		notifier,     // but subscribe to the Postgres notification bus to know when new events arrive
-		from,
-	), nil
+    return newBuildEventSource(
+        b,
+        b.conn,
+        b.eventStore, // fetch events from the EventStore using EventStore.Get(...)
+        notifier,     // but subscribe to the Postgres notification bus to know when new events arrive
+        from,
+    ), nil
 }
 ```
 
@@ -387,7 +387,7 @@ But I'm not sure if there's much value in that.
 ## <a name="migrations">Migrations</a>
 
 Currently, we have migrations to set up the `build_events` table, as well as
-`TRIGGERs` for creating/deleting `pipeline_build_events_x` and
+`TRIGGER`s for creating/deleting `pipeline_build_events_x` and
 `team_build_events_x` tables when pipelines and teams are created/deleted.
 
 I propose that we comment out these up migrations (so future deployments don't
@@ -399,7 +399,7 @@ schema, unlike with migrations - each `EventStore` (that stores data in a
 structured way - this may just end up being Postgres) will need to basically
 implement its own form of migrations if we need to change the schema. My guess
 is that we won't be changing the schema too often, though (given that we
-haven't since the initial migration).
+haven't changed `build_events` since the initial migration).
 
 
 ## Configuration
@@ -414,23 +414,27 @@ that backend.
 # Open Questions
 
 * Does `Key` need to be `interface{}`, or can it be more specific like `uint`?
+  For backends that don't support auto-incrementing, but still need some
+  ordering (if the timestamp isn't sufficient), we **could** create a Postgres
+  sequence for every backend (external to the `EventStore`), and change the
+  signature to `Put(build db.Build, eventID uint, event atc.Event)`
 
 * Do we care about the `Last-Event-ID` header on the
   `/api/v1/builds/{build_id}/events` endpoint? I don't think we use it anywhere
   internally, but I guess we may want to keep it for backwards compatibility?
-  It's not used by `fly` or `go-concourse`, either.
+  It's not exposed by `fly` or `go-concourse`, either.
 
 * Would any event stores benefit from bringing their own notification bus
   implementation, rather than relying on Postgres' notification bus? Does using
   the Postgres notification bus defeat the purpose of having an external store in
-  any way?
+  any way (e.g. could this be a bottleneck)?
 
 * Users won't be able to access build events that exist in the main Postgres
-  database if they switch do a new backend store. How can we make the
+  database if they switch to a new backend store. How can we make the
   transition easier? One idea I have is to have a `FallbackEventStore` that
   composes two `EventStores` - it will always `Put` to the primary one, but if
   `Get` fails or returns no events from the primary `EventStore`, try the
-  fallback `EventStore`
+  fallback `EventStore`.
 
 
 # Answered Questions
