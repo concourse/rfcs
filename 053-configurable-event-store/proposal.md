@@ -336,8 +336,8 @@ whether there are use cases where `EventStores` would benefit from using their
 own native pub/sub system (e.g. MongoDB has a `collection.watch()`
 functionality).
 
-Note that `EventStore` implementations don't need to think about notifications
-- this all happens at the DB layer:
+Note that `EventStore` implementations don't need to think about notifications.
+This all happens at the DB layer:
 
 ```go
 func (b *build) SaveEvent(event atc.Event) error {
