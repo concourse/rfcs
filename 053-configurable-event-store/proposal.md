@@ -87,7 +87,7 @@ Let's unpack each function:
   check if the `build_events` table exists, and if not, create it (note: this
   was previously done by DB migrations - more on this in [Migrations](#migrations))
 
-* `Initialize(build db.Build)` will be triggered when a build is `Start`ed, and
+* `Initialize(build db.Build)` will be triggered when a build is first created, and
   before any build events are `Put` into the store. For the `Postgres`
   implementation, this will create a sequence like `build_event_id_seq_x` for the
   current build. It will also create either the table `pipeline_build_events_x`
