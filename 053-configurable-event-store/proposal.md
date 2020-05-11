@@ -100,9 +100,13 @@ Let's unpack each function:
   build events may be `Put` into the store after this is called. For
   `Postgres`, this involves dropping the `build_event_id_seq_x` sequence.
 
-* `Put(build db.Build, event atc.Event)` is called whenever
+* `Put(build db.Build, events []atc.Event)` is called whenever
   `build.SaveEvent(event)` is called in order to write build events to the
-  external store.
+  external store. The reason for accepting a list of `events` (despite
+  `db.Build.SaveEvent` only ever passing in a single event) is because if we
+  want to migrate build events to another `EventStore`, it would be super slow
+  making make a huge number of small `Put` calls when we can do one batch `Put`
+  per Build.
 
 * `Get(build db.Build, requested int, cursor *Key)` fetches events from the
   `EventStore`, starting from an initial `Key` (which is excluded from the
@@ -125,7 +129,7 @@ Let's unpack each function:
       }
       // process events here
       if len(events) < batchSize {
-          // there are no more events (see below)
+          // there are no more events (see note below about `requested`)
           break
       }
   }
@@ -202,8 +206,11 @@ func (s *SecretRedactingEventStore) Initialize(build db.Build) error {
     return s.EventStore.Initialize(build)
 }
 
-func (s *SecretRedactingEventStore) Put(build db.Build, event atc.Event) error {
-    redactedEvent := s.redactSecretsFrom(event, build)
+func (s *SecretRedactingEventStore) Put(build db.Build, events []atc.Event) error {
+    redactedEvents := make([]atc.Event, len(events)
+    for i, evt := range events {
+        redactedEvents[i] = s.redactSecrets(build, evt)
+    }
     return s.EventStore.Put(build, redactedEvent)
 }
 ```
@@ -216,8 +223,8 @@ type SyslogForwardingEventStore struct {
     // Some syslog forwarding state
 }
 
-func (s *SyslogForwardingEventStore) Put(build db.Build, event atc.Event) error {
-    if err := s.syslogForwardEvent(build, event); err != nil {
+func (s *SyslogForwardingEventStore) Put(build db.Build, events []atc.Event) error {
+    if err := s.syslogForwardEvents(build, events); err != nil {
         return err
     }
     return s.EventStore.Put(build, event)
