@@ -62,18 +62,18 @@ To support having custom event stores, introduce an `EventStore` interface:
 type Key interface{}
 
 type EventStore interface {
-    Setup() error
-    Close() error
+    Setup(ctx context.Context) error
+    Close(ctx context.Context) error
 
-    Initialize(build db.Build) error
-    Finalize(build db.Build) error
+    Initialize(ctx context.Context, build db.Build) error
+    Finalize(ctx context.Context, build db.Build) error
 
-    Put(build db.Build, events []atc.Event) error
-    Get(build db.Build, requested int, cursor *Key) ([]event.Envelope, error)
+    Put(ctx context.Context, build db.Build, events []atc.Event) error
+    Get(ctx context.Context, build db.Build, requested int, cursor *Key) ([]event.Envelope, error)
 
-    Delete(builds []db.Build) error
-    DeletePipeline(pipeline db.Pipeline) error
-    DeleteTeam(team db.Team) error
+    Delete(ctx context.Context, builds []db.Build) error
+    DeletePipeline(ctx context.Context, pipeline db.Pipeline) error
+    DeleteTeam(ctx context.Context, team db.Team) error
 
     UnmarshalKey(data []byte, key *Key) error
 }
@@ -81,20 +81,20 @@ type EventStore interface {
 
 Let's unpack each function:
 
-* `Setup()` is used to, well, perform any required setup. It'll be called once
+* `Setup(ctx)` is used to, well, perform any required setup. It'll be called once
   when Concourse starts up. For an `Elasticsearch` implementation of
   `EventStore`, for instance, `Setup()` would likely initialize a connection to
   the Elasticsearch cluster. For a `Postgres` implementation, `Setup()` will
   check if the `build_events` table exists, and if not, create it (note: this
   was previously done by DB migrations - more on this in [Migrations](#migrations))
 
-* `Close()` is for cleaning up any left over resources. For instance, if a
+* `Close(ctx)` is for cleaning up any left over resources. For instance, if a
   connection was opened to an Elasticsearch cluster in `Setup`, `Close` should
   gracefully terminate the connection. However, it should not necessarily be the
   inverse of `Setup` - e.g. for `Postgres`, `Setup` creates the `build_events`
   table, but `Close` should not drop it.
 
-* `Initialize(build db.Build)` will be triggered when a build is first created, and
+* `Initialize(ctx, build db.Build)` will be triggered when a build is first created, and
   before any build events are `Put` into the store. For the `Postgres`
   implementation, this will create a sequence like `build_event_id_seq_x` for the
   current build. It will also create either the table `pipeline_build_events_x`
@@ -103,11 +103,11 @@ Let's unpack each function:
   created when the team/pipeline is first created, but it shouldn't really have
   much impact.
 
-* `Finalize(build db.Build)` will be triggered when a build is `Finish`ed. No
+* `Finalize(ctx, build db.Build)` will be triggered when a build is `Finish`ed. No
   build events may be `Put` into the store after this is called. For
   `Postgres`, this involves dropping the `build_event_id_seq_x` sequence.
 
-* `Put(build db.Build, events []atc.Event)` is called whenever
+* `Put(ctx, build db.Build, events []atc.Event)` is called whenever
   `build.SaveEvent(event)` is called in order to write build events to the
   external store. The reason for accepting a list of `events` (despite
   `db.Build.SaveEvent` only ever passing in a single event) is because if we
@@ -115,7 +115,7 @@ Let's unpack each function:
   making a huge number of small `Put` calls when we can do one batch `Put` per
   Build.
 
-* `Get(build db.Build, requested int, cursor *Key)` fetches events from the
+* `Get(ctx, build db.Build, requested int, cursor *Key)` fetches events from the
   `EventStore`, starting from an initial `Key` (which is excluded from the
   result set - e.g.  if `cursor` points to the 10th `Key`, the 11th event will be
   the next one fetched). `Key` can be any type, and is implementation-specific.
@@ -158,10 +158,10 @@ Let's unpack each function:
     data that results in more than `requested` events, there's no use in throwing
     the extra events away.
 
-* `Delete(builds []db.Builds)` deletes the build events for a list of builds.
+* `Delete(ctx, builds []db.Builds)` deletes the build events for a list of builds.
   This is used by the build log collector.
 
-* `DeletePipeline(pipeline db.Pipeline)` deletes all of the builds for a given
+* `DeletePipeline(ctx, pipeline db.Pipeline)` deletes all of the builds for a given
   pipeline. While this could be done by doing something like:
 
   ```go
@@ -177,7 +177,7 @@ Let's unpack each function:
   ideas anyone has on how to just have a single `Delete` method that acts on
   builds while achieving the same table-dropping ability for Postgres.
 
-* `DeleteTeam(team db.Team)` deletes all builds for a given team. Same
+* `DeleteTeam(ctx, team db.Team)` deletes all builds for a given team. Same
   reasoning as `DeletePipeline()`.
 
 * `UnmarshalKey(data []byte, key *Key)` works like `UnmarshalJSON` - give it
@@ -208,17 +208,17 @@ type SecretRedactingEventStore struct {
     ...
 }
 
-func (s *SecretRedactingEventStore) Initialize(build db.Build) error {
+func (s *SecretRedactingEventStore) Initialize(ctx context.Context, build db.Build) error {
     s.initializeCredVarsTrackingForBuild(build)
-    return s.EventStore.Initialize(build)
+    return s.EventStore.Initialize(ctx, build)
 }
 
-func (s *SecretRedactingEventStore) Put(build db.Build, events []atc.Event) error {
+func (s *SecretRedactingEventStore) Put(ctx context.Context, build db.Build, events []atc.Event) error {
     redactedEvents := make([]atc.Event, len(events)
     for i, evt := range events {
         redactedEvents[i] = s.redactSecrets(build, evt)
     }
-    return s.EventStore.Put(build, redactedEvent)
+    return s.EventStore.Put(ctx, build, redactedEvent)
 }
 ```
 
@@ -230,11 +230,11 @@ type SyslogForwardingEventStore struct {
     // Some syslog forwarding state
 }
 
-func (s *SyslogForwardingEventStore) Put(build db.Build, events []atc.Event) error {
+func (s *SyslogForwardingEventStore) Put(ctx context.Context, build db.Build, events []atc.Event) error {
     if err := s.syslogForwardEvents(build, events); err != nil {
         return err
     }
-    return s.EventStore.Put(build, event)
+    return s.EventStore.Put(ctx, build, event)
 }
 ```
 
@@ -251,15 +251,15 @@ type ColdStorageEventStore struct {
     ColdStorage ColdStorage
 }
 
-func (c *ColdStorageEventStore) Finalize(build Build) error {
-    if err := c.EventStore.Finalize(build); err != nil {
+func (c *ColdStorageEventStore) Finalize(ctx context.Context, build Build) error {
+    if err := c.EventStore.Finalize(ctx, build); err != nil {
         return err
     }
     // perhaps run this in the background
     return c.migrateToColdStorage(build)
 }
 
-func (c *ColdStorageEventStore) migrateToColdStorage(build Build) error {
+func (c *ColdStorageEventStore) migrateToColdStorage(ctx context.Context, build Build) error {
     file, err := c.ColdStorage.Open(fmt.Sprintf("build_%d", build.ID()))
     if err != nil {
         return err
@@ -272,7 +272,7 @@ func (c *ColdStorageEventStore) migrateToColdStorage(build Build) error {
     batchSize := 1000
     var cursor Key
     for { 
-        events, err := c.EventStore.Get(build, batchSize, &cursor)
+        events, err := c.EventStore.Get(ctx, build, batchSize, &cursor)
         if err != nil {
             file.Close()
             return err
@@ -290,13 +290,13 @@ func (c *ColdStorageEventStore) migrateToColdStorage(build Build) error {
     if err = file.Close(); err != nil {
         return err
     }
-    if err = c.EventStore.Delete(build); err != nil {
+    if err = c.EventStore.Delete(ctx, build); err != nil {
         return err
     }
     return nil
 }
 
-func (c *ColdStorageEventStore) Get(build Build, requested int, cursor *Key) ([]event.Envelope, error) {
+func (c *ColdStorageEventStore) Get(ctx context.Context, build Build, requested int, cursor *Key) ([]event.Envelope, error) {
     if build.IsCompleted() {
         // Note that we're ignoring `requested` here: if we read from cold storage,
         // we have to download the whole file, so it might as well return all of the events
@@ -307,7 +307,7 @@ func (c *ColdStorageEventStore) Get(build Build, requested int, cursor *Key) ([]
         // if fail to read from cold storage, assume it's because we failed to create
         // the file in cold storage initially. fallback to the primary event store
     }
-    return c.EventStore.Get(build, requested, from)
+    return c.EventStore.Get(ctx, build, requested, from)
 }
 
 func (c *ColdStorageEventStore) readFromColdStorage(build Build) ([]event.Envelope, error) {
@@ -354,9 +354,9 @@ Note that `EventStore` implementations don't need to think about notifications.
 This all happens at the DB layer:
 
 ```go
-func (b *build) SaveEvent(event atc.Event) error {
+func (b *build) SaveEvent(ctx context.Context, event atc.Event) error {
     // use the `EventStore` to save
-    err := b.eventStore.Put(b, event)
+    err := b.eventStore.Put(ctx, b, event)
     if err != nil {
         return err
     }
@@ -366,7 +366,7 @@ func (b *build) SaveEvent(event atc.Event) error {
 ```
 
 ```go
-func (b *build) Events(from uint) (EventSource, error) {
+func (b *build) Events(ctx context.Context, from uint) (EventSource, error) {
     notifier, err := newConditionNotifier(b.conn.Bus(), buildEventsNotificationChannel(b.ID()), func() (bool, error) {
         return true, nil
     })
@@ -375,6 +375,7 @@ func (b *build) Events(from uint) (EventSource, error) {
     }
 
     return newBuildEventSource(
+        ctx,
         b,
         b.conn,
         b.eventStore, // fetch events from the EventStore using EventStore.Get(...)
