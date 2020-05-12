@@ -112,8 +112,8 @@ Let's unpack each function:
   external store. The reason for accepting a list of `events` (despite
   `db.Build.SaveEvent` only ever passing in a single event) is because if we
   want to migrate build events to another `EventStore`, it would be super slow
-  making make a huge number of small `Put` calls when we can do one batch `Put`
-  per Build.
+  making a huge number of small `Put` calls when we can do one batch `Put` per
+  Build.
 
 * `Get(build db.Build, requested int, cursor *Key)` fetches events from the
   `EventStore`, starting from an initial `Key` (which is excluded from the
