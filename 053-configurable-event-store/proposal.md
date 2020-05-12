@@ -63,6 +63,7 @@ type Key interface{}
 
 type EventStore interface {
     Setup() error
+    Close() error
 
     Initialize(build db.Build) error
     Finalize(build db.Build) error
@@ -86,6 +87,12 @@ Let's unpack each function:
   the Elasticsearch cluster. For a `Postgres` implementation, `Setup()` will
   check if the `build_events` table exists, and if not, create it (note: this
   was previously done by DB migrations - more on this in [Migrations](#migrations))
+
+* `Close()` is for cleaning up any left over resources. For instance, if a
+  connection was opened to an Elasticsearch cluster in `Setup`, `Close` should
+  gracefully terminate the connection. However, it should not necessarily be the
+  inverse of `Setup` - e.g. for `Postgres`, `Setup` creates the `build_events`
+  table, but `Close` should not drop it.
 
 * `Initialize(build db.Build)` will be triggered when a build is first created, and
   before any build events are `Put` into the store. For the `Postgres`
