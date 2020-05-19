@@ -66,19 +66,15 @@ This can be done by keeping track of which job created a pipeline, and which pip
 
 ## Un-archiving
 
-A pipeline will become un-archived when its pipeline is set once again, either through `fly set-pipeline` or through the `set_pipeline` step. This way we can ensure that there is a valid configuration when unarchiving (which allows us to clear out configuration and other unnecessary data when the pipeline is archived).
+A pipeline will become un-archived when its pipeline is set once again, either through `fly set-pipeline` or through the `set_pipeline` step. This ensures that there is a valid configuration when unarchiving.
 
-Note that when a pipeline is un-archived by this process it is paused. This is symmetrical with the fact that pipelines begin their life in the paused state.
-
-This is also to support the use case of temporarily commenting out a `set_pipeline` step and then un-commenting it to bring it back.
+Note that when a pipeline is un-archived through `fly set-pipeline`, it will paused, but if a pipeline is un-archived through the `set_pipeline` step, it will be unpaused. This is the same behavior as with a newly configured pipeline.
 
 Because a pipeline becomes un-archived and re-configured in one fell swoop, it's possible that a user may unknowingly "reclaim" an old, archived, unrelated pipeline when really they just want to use the name again for a different pipeline.
 
 To make the behavior explicit, a prompt will be added to `fly set-pipeline` when it detects that the user is configuring an existing but archived pipeline. This is easy to detect, because `fly set-pipeline` already fetches the existing pipeline for diffing purposes. If `fly set-pipeline` is run with `--non-interactive`, the pipeline will be configured and unarchived without a prompt.
 
-The `set_pipeline` step's behavior will be consistent with `fly set-pipeline --non-interactive` as long as the archived pipeline was originally configured by the same job. This way things will "just work" in the happy path of commenting-out and then uncommenting a `set_pipeline` step.
-
-If the `set_pipeline` step notices that it's configuring an archived pipeline configured by a *different* job, or by no job, it will fail. The user will have to either rename or destroy the archived pipeline.
+The `set_pipeline` step's behavior will be consistent with `fly set-pipeline --non-interactive` as long as the archived pipeline was originally configured by the same job. This way things will "just work" in the happy path of commenting-out and then uncommenting a `set_pipeline` step. If the `set_pipeline` step notices that it's configuring an archived pipeline configured by a *different* job, or by no job, it will fail. The user will have to either rename or destroy the archived pipeline.
 
 
 # Open Questions
