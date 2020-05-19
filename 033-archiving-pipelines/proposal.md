@@ -11,13 +11,15 @@ $ fly -t ci archive-pipeline -p pipeline-name
 pipeline 'pipeline-name' archived
 ```
 
-Archived pipelines are permanently paused - no resource checking or job scheduling is performed. They should consume no scheduling resources - only database space for the build history. Note that, with the exception of the behaviour of `CreateJobBuild` (outlined below), any behaviour associated with paused pipelines should be inherited by archived pipelines (things like resource checking and garbage collection included).
+Archived pipelines inherit the behavior of paused pipelines, with a few differences outlined below. As with paused pipelines, no resource checking or job scheduling is performed. Build logs are kept, but remain subject to the configured build log retention policy.
 
-Archived pipelines may have their configuration stripped out so that credentials and other sensitive information isn't stored forever. (This also has the effect of making it impossible for the pipeline to accidentally run somehow.)
+Archived pipelines remain viewable in the web UI and `fly`, but they are grouped into a separate section, hidden by default.
 
-Archived pipelines will be viewable in the web UI, but grouped into a separate section, hidden by default.
+Unlike paused pipelines, archived pipelines will have their configuration stripped out so that sensitive information isn't stored forever.
 
-Archived pipeline names exist in the same namespace as unarchived pipelines. They can still be navigated to and interacted with by their name.
+Unlike paused pipelines, new builds cannot be created for archived pipelines. This is outlined in the API differences below, and enforced by the removal of their configuration.
+
+Archived pipeline names exist in the same namespace as unarchived pipelines. Configuring a new pipeline with the same name as an archived pipeline un-archives the pipeline and gives it a new configuration. See [Un-archiving](#un-archiving).
 
 ## API implications
 
