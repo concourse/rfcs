@@ -59,7 +59,10 @@ more in [`EventStore` Composition](#event-store-composition).
 To support having custom event stores, introduce an `EventStore` interface:
 
 ```go
-type Key interface{}
+type Key interface {
+    Marshal() ([]byte, error)
+    GreaterThan(Key) bool     // Keys form a total ordering
+}
 
 type EventStore interface {
     Setup(ctx context.Context) error
@@ -68,7 +71,7 @@ type EventStore interface {
     Initialize(ctx context.Context, build db.Build) error
     Finalize(ctx context.Context, build db.Build) error
 
-    Put(ctx context.Context, build db.Build, events []atc.Event) error
+    Put(ctx context.Context, build db.Build, events []atc.Event) (Key, error)
     Get(ctx context.Context, build db.Build, requested int, cursor *Key) ([]event.Envelope, error)
 
     Delete(ctx context.Context, builds []db.Build) error
@@ -113,7 +116,7 @@ Let's unpack each function:
   `db.Build.SaveEvent` only ever passing in a single event) is because if we
   want to migrate build events to another `EventStore`, it would be super slow
   making a huge number of small `Put` calls when we can do one batch `Put` per
-  Build.
+  Build. `Put` returns the `Key` of the last event inserted
 
 * `Get(ctx, build db.Build, requested int, cursor *Key)` fetches events from the
   `EventStore`, starting from an initial `Key` (which is excluded from the
@@ -130,7 +133,7 @@ Let's unpack each function:
   var cursor Key
   batchSize := 1000
   for {
-      events, err := eventStore.Get(build, batchSize, &cursor)
+      events, err := eventStore.Get(ctx, build, batchSize, &cursor)
       if err != nil {
           panic(err)
       }
@@ -181,17 +184,8 @@ Let's unpack each function:
   reasoning as `DeletePipeline()`.
 
 * `UnmarshalKey(data []byte, key *Key)` works like `UnmarshalJSON` - give it
-  some bytes and tell it where you want to put the result. This is used e.g.
-  for the `/api/v1/builds/build_id}/events` endpoint where you can pass in a
-  `Last-Event-ID` header - we would call `UnmarshalKey` on this raw value, and
-  the `EventStore` would parse it appropriately. For instance, for Postgres, we
-  would expect `data` to look like a number in ASCII, so we could parse it
-  appropriately.
-
-  This is only necessary if we care about the `Last-Event-ID` header from what
-  I can tell (it doesn't appear that any internal code requires starting events
-  from a certain point - hence no need for a `MarshalKey` method). I left as an
-  open question whether we want to keep `Last-Event-ID`.
+  some bytes and tell it where you want to put the result. It is the inverse of
+  `Key.Marshal` for the corresponding `Key` type.
 
 
 ## <a name="event-store-composition">`EventStore` Composition</a>
@@ -342,13 +336,24 @@ As I mentioned before, while you can iterate over a completed build's events by
 looping over `EventStore.Get`, this doesn't work so well for builds that are
 still producing events, since (in general) there's no way to know when new
 events come in (besides polling). The solution that I came up with is to use
-the Postgres notification bus to notify `db.Build.Events()` of new build
-event(s). It feels a bit weird to rely on Postgres for this even when using an
-external store that shouldn't need to touch Postgres - I left an open question
-about whether people feel this is a bad idea, and another question about
-whether there are use cases where `EventStores` would benefit from using their
-own native pub/sub system (e.g. MongoDB has a `collection.watch()`
-functionality).
+the Postgres notification bus to send events over the line as they are created.
+This way, `db.Build.Events()` pulls events from two sources - using
+`EventStore.Get` at the beginning to fetch any existing build events, and using
+the notification bus to fetch new build events.
+
+There are a few motivations for this:
+
+1. For Elasticsearch, after `Put`ting events in the store, they aren't
+   immediately searchable by default (newly created documents become searchable
+   on a 1 second interval). So, if we were to just notify `db.Build.Events()` that
+   there are new build events (current behaviour), when we try to call
+   `EventStore.Get(...)`, these new events may not be available.
+1. I imagine this can be a performance improvement for certain backends. Even
+   with Postgres, every time there's a new build event, we perform a query - I
+   would predict that just reading from the notification bus could be faster
+   (especially considering the current proceduce is: i) receive empty event from
+   notification bus, and ii) perform a query) - this is just a hypothesis, though.
+   That said, other backends (e.g. an S3 backend) could be relatively slow to `Get`.
 
 Note that `EventStore` implementations don't need to think about notifications.
 This all happens at the DB layer:
@@ -356,12 +361,13 @@ This all happens at the DB layer:
 ```go
 func (b *build) SaveEvent(ctx context.Context, event atc.Event) error {
     // use the `EventStore` to save
-    err := b.eventStore.Put(ctx, b, event)
+    key, err := b.eventStore.Put(ctx, b, event)
     if err != nil {
         return err
     }
     // ...but notify the main Postgres DB's notification bus.
-    return b.conn.Bus().Notify(buildEventsNotificationChannel(b.ID()))
+    payload := constructPayload(event, key)
+    return b.conn.Bus().Notify(buildEventsNotificationChannel(b.ID()), payload)
 }
 ```
 
@@ -378,25 +384,12 @@ func (b *build) Events(ctx context.Context, from uint) (EventSource, error) {
         ctx,
         b,
         b.conn,
-        b.eventStore, // fetch events from the EventStore using EventStore.Get(...)
-        notifier,     // but subscribe to the Postgres notification bus to know when new events arrive
+        b.eventStore, // fetch existing events from the EventStore using EventStore.Get(...)
+        notifier,     // but subscribe to the Postgres notification bus to receive new events
         from,
     ), nil
 }
 ```
-
-I've toyed with the idea of having an optional interface that `EventStore`
-implementations can implement that would overwrite this default...something
-like:
-
-```go
-type EventNotificationBus interface {
-    Notify(build Build) error
-    Listen(build Build) (<-chan struct{}, error)
-}
-```
-
-But I'm not sure if there's much value in that.
 
 
 ## <a name="migrations">Migrations</a>
@@ -428,7 +421,7 @@ that backend.
 
 # Open Questions
 
-* Does `Key` need to be `interface{}`, or can it be more specific like `uint`?
+* Does `Key` need to be `interface{...}`, or can it be more specific like `uint`?
   For backends that don't support auto-incrementing, but still need some
   ordering (if the timestamp isn't sufficient), we **could** create a Postgres
   sequence for every backend (external to the `EventStore`), and change the
@@ -439,11 +432,6 @@ that backend.
   internally, but I guess we may want to keep it for backwards compatibility?
   It's not exposed by `fly` or `go-concourse`, either.
 
-* Would any event stores benefit from bringing their own notification bus
-  implementation, rather than relying on Postgres' notification bus? Does using
-  the Postgres notification bus defeat the purpose of having an external store in
-  any way (e.g. could this be a bottleneck)?
-
 * Users won't be able to access build events that exist in the main Postgres
   database if they switch to a new backend store. How can we make the
   transition easier? One idea I have is to have a `FallbackEventStore` that
@@ -453,7 +441,6 @@ that backend.
 
 
 # Answered Questions
-
 
 # New Implications
 
