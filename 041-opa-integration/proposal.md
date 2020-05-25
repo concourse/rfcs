@@ -29,14 +29,16 @@ Possible policies to apply could be:
 ## Support multiple policy managers
 
 Like how multiple credential managers are supported, Concourse should allow other
-policy managers than OPA.
+policy managers than OPA. Thus an interface of `PolicyCheck` should be defined, and
+OPA is one of the implementations.
 
 ## Policy check points
 
-* All API calls, for example `set-pipeline`, will also go through policy checks.
-* Because Concourse supports task file, and task file is only fetched at runtime.
-The action `set-pipeline` has no access to task files. To support policy check 
-against tasks, a policy check should be invoked before a task run starts.
+* All API calls, for example `set-pipeline`, will also go through policy checks. If
+the check doesn't pass, API should return HTTP code 403 (forbidden).
+* `UsingImage` action will be sent to OPA before Concourse launches a container in
+`check/get/put/task` steps. If the check doesn't pass, the step should return an error
+indicating policy check not pass.
 
 ## OPA configuration
 
@@ -66,14 +68,14 @@ policies to to configured in the policy engine.
 * `cluster_name`: cluster name.
 * `cluster_version`: Concourse version
 * `action`: Action name. This follows same action names used in RBAC, plus an extra
-action `RunTask`.
-* `http_method`: HTTP method of the action, for `RunTask`, this field absents.
+action `UsingImage`.
+* `http_method`: HTTP method of the action, for `UsingImage`, this field absents.
 * `user`: username who invokes the action.
 * `team`: team name.
 * `pipeline`: pipeline name. Some action is not against a pipeline, then this field 
 can be omitted.
-* `data`: For API actions, `data` should carry data from the API call; for `RunTask`
-action, data is the task configuration.
+* `data`: For API actions, `data` should carry data from the API call; for `UsingImage`
+action, data is the image configuration.
 
 For example, a policy check request against `set_pipeline` looks like:
 
@@ -106,26 +108,26 @@ to decide which actions should run policy checks, meaning that, without defining
 policy check filters, no action will run policy check.
 
 Users may not want to run policy check against all actions. For example, Concourse
-generate large amount of `ListAllPipelines`, and it makes not much sense to check
+generate a large amount of `ListAllPipelines`, and it makes not much sense to check
 it.
 
-It's assumable that users more tends to check policy against write actions than
-read-only actions. As all actions expect `RunTask` are invoked from HTTP, we 
-can provide a filter, `policy-check-filter-http-methods`, to specify HTTP 
+Users will tend to check with the policy manager for write actions rather than
+read-only actions. As all actions except `UsingImage` are invoked from HTTP, we 
+can provide a filter, `policy-check-filter-http-method`, to specify HTTP 
 methods via which actions are invoked. To skip read-only action for policy 
 check, users may set `POST,PUT,DELETE` to the filter `policy-check-filter-http-
-methods`, so that `GET` actions will not go through policy check.
+method`, so that `GET` actions will not go through policy check.
 
 User also may specifically want to or don't want to do run policy check against
 certain actions. For example, a cluster will want to check policy against only
-`SetPipeline`, or the other cluster don't want to check policy against `RunTask`,
+`SetPipeline`, or the other cluster don't want to check policy against `UsingImage`,
 for which two more filters, `policy-check-filter-action` and `policy-check-
 filter-action-skip` are supported. If an action is defined in action list, then 
 the action will always go through policy check, vice versa for action-skip list. 
 
 In summary, where are three policy check filters:
 
-* `policy-check-filter-http-methods`: defines HTTP methods of actions that
+* `policy-check-filter-http-method`: defines HTTP methods of actions that
 should go through policy checks. Default to empty list.
 * `policy-check-filter-action`: defines action names that should always go 
 through policy checks. Default to empty list.
