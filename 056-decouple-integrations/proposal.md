@@ -23,7 +23,7 @@ Similarly, leveraging a [new batch processing](https://github.com/concourse/conc
 
 Define interfaces and externalize the integrations such that adding new integrations or updating existing integrations doesn't require a new version of Concourse.
 
-One way to achieve this would be to use [gRP](https://grpc.io/) where each integration type would have a `service` defining the interface. 
+One way to achieve this would be to use [gRPC](https://grpc.io/) where each integration type would have a `service` defining the interface. 
 The interface would define the set of methods including their arguments and responses. 
 This would be preferred over defining a `json/http` style API due to
 - code generation for clients
