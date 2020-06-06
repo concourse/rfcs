@@ -175,8 +175,11 @@ type MessageRequest struct {
   // The object to act on.
   Object Object `json:"object"`
 
-  // Configuration for handling TLS.
+  // Configuration for establishing TLS connections.
   TLS TLSConfig `json:"tls,omitempty"`
+
+  // A base64-encoded 32-byte encryption key for use with AES-GCM.
+  Encryption EncryptionConfig `json:"encryption,omitempty"`
 
   // Path to a file into which the message handler must write its MessageResponses.
   ResponsePath string `json:"response_path"`
@@ -188,6 +191,9 @@ type MessageRequest struct {
 type MessageResponse struct {
   // The object.
   Object Object `json:"object"`
+
+  // Encrypted fields of the object.
+  Encrypted EncryptedObject `json:"encrypted"`
 
   // Metadata to associate with the object. Shown to the user.
   Metadata []MetadataField `json:"metadata,omitempty"`
@@ -201,6 +207,28 @@ type TLSConfig struct {
 
   // Skip certificate verification, effectively making communication insecure.
   SkipVerification bool `json:"skip_verification,omitempty"`
+}
+
+type EncryptionConfig struct {
+  // The encryption algorithm for the prototype to use.
+  //
+  // This value will be static, and changing it will imply a major bump to the
+  // Prototype protocol version. It is included here as a helpful indicator so
+  // that prototype authors don't have to guess at the payload.
+  Algorithm string `json:"algorithm"`
+
+  // A base64-encoded 32-length key, unique to each message.
+  Key []byte `json:"key"`
+}
+
+// EncryptedObject contains an AES-GCM encrypted JSON payload containing
+// additional fields of the object.
+type EncryptedObject struct {
+  // The base64-encoded encrypted payload.
+  Payload []byte `json:"payload"`
+
+  // The base64-encrypted nonce.
+  Nonce []byte `json:"nonce"`
 }
 
 // MetadataField represents a named bit of metadata associated to an object.
@@ -298,6 +326,111 @@ Response written to `../response/response.json`:
 
 This response would be typical of a `check` that ran against a `git` repository
 that had three commits.
+
+
+## Encryption
+
+In order to use Prototypes for credential acquisition, there must be a way to
+return object attributes which contain sensitive data without writing the data
+to disk in plaintext.
+
+A Prototype's `MessageRequest` may contain an `EncryptionConfig` which
+specifies the encryption algorithm to use and any other necessary data for use
+with the algorithm (such as a key).
+
+The Prototypes protcol will only support one encryption algorithm at a time,
+and if it needs to be changed, this will imply a **major** bump to the protocol
+version. This is to encourage phasing out support for no-longer-adequate
+security algorithms.
+
+The decision as to which algorithm to use for the initial version is currently
+an open question, but the most likely candidate right now is AES-GCM, which is
+the same algorithm used for database encryption in Concourse. Another candidate
+may be NaCL. Note that whichever one we choose must be available in various
+languages so that Prototype authors aren't restricted to any particular library
+or language.
+
+Assuming AES-GCM, the `EncryptionConfig` in the request will include a `key`
+field containing a base64-encoded 32-length key, and a `nonce_size` field
+indicating the size of the nonce necessary to encrypt/decrypt:
+
+```json
+{
+  "object": {
+    "uri": "https://vault.example.com",
+    "client_token": "01234567889abcdef"
+  },
+  "encryption": {
+    "algorithm": "AES-GCM",
+    "key": "aXzsY7eK/Jmn4L36eZSwAisyl6Q4LPFIVSGEE4XH0hA=",
+    "nonce_size": 12
+  }
+}
+```
+
+
+It is the responsibility of the Prototype implementation to generate a nonce
+value of the specified length. The Prototype would then marshal a JSON object
+containing fields to be encrypted, encrypt it with the key and nonce, and
+return the encrypted payload along with the nonce value in a `EncryptedObject`
+in the `MessageResponse` - both as base64-encoded values:
+
+```json
+{
+  "object": {
+    "public": "fields"
+  },
+  "encrypted": {
+    "nonce": "6rYKFHXh43khqsVs",
+    "payload": "St5pRZumCx75d2x2s3vIjsClUi9DqgnIoG2Slt2RoCvz"
+  }
+}
+```
+
+The encrypted payload above is `{"some":"secret"}`, so the above response
+ultimately describes the following object:
+
+```json
+{
+  "public": "fields",
+  "some": "secret"
+}
+```
+
+### Rationale for encryption technique
+
+A few alternatives to this approach were considered:
+
+* Initially, the use of HTTPS was appealing as it would avoid placing data on
+  disk entirely.
+
+  However this is a much more complicated architecture that raises many more
+  questions:
+
+  * What are the API endpoints?
+  * How are the requests routed?
+  * How is TLS configured?
+  * How is the response delivered?
+    * Regular HTTP response? If the `web` node detaches, how can we re-attach?
+    * Callbacks? What happens when the callback endpoint is down?
+  * Is it safe to retry requests?
+
+* We could write the responses to `tmpfs` to ensure they only ever exist in
+  RAM.
+
+  The main downside is that operators would have to make sure that swap is
+  disabled so that data is never written to disk. This seems like a safe
+  assumption for Kubernetes but seems like an easy mistake to make for
+  operators managing their own VMs.
+
+One advantage of the current approach is that it tells Concourse which fields
+can be public and which fields contain sensitive information, while requiring
+the sensitive information to be encrypted.
+
+While this could be supported either way by specifying a field such as
+`expose":["public"]`, it seems valuable to force Prototype authors to "do the
+right thing" and encrypt the sensitive data, rather than allowing them to
+simply hide it from the UI.
 
 
 ## Object Cloning
