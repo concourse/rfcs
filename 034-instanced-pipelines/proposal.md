@@ -6,15 +6,22 @@ Instanced pipelines group together pipelines which share a common template confi
 
 Pipelines can be configured with 'instance vars' like so:
 
-```yaml
+```sh
 fly set-pipeline -p branch --instance-var branch=feature/foo
 ```
 
-This will configure a `branch` pipeline, with the `((branch))` var set to `"feature/foo"`.
+These may also be specified on the [`set_pipeline` step][set-pipeline-rfc] like so:
+
+```yaml
+set_pipeline: branch
+instance_vars: {branch: feature/foo}
+```
+
+Both of the above examples will configure a `branch` pipeline, with the `((branch))` var set to `"feature/foo"`.
 
 Instance vars are used as part of the pipeline identifier in the UI and API. There can be multiple instances of a pipeline with the same name:
 
-```yaml
+```sh
 fly set-pipeline -p branch --instance-var branch=feature/foo
 fly set-pipeline -p branch --instance-var branch=feature/bar
 ```
@@ -23,7 +30,7 @@ Instanced pipelines sharing the same name will be grouped together in the web UI
 
 An individual instance of a pipeline can be manually destroyed, paused, and archived ([RFC #33](https://github.com/concourse/rfcs/pull/33)):
 
-```yaml
+```sh
 fly destroy-pipeline -p branch -i branch:feature/foo
 fly pause-pipeline   -p branch -i branch:feature/foo
 fly archive-pipeline -p branch -i branch:feature/foo
@@ -72,3 +79,6 @@ When this build runs, the `version: 5.2` instance will be automatically archived
 # New Implications
 
 This functionality will be more and more useful as we expand Concourse's vocabulary to support pipeline automation. Spatial resources ([RFC #29](https://github.com/concourse/rfcs/pull/29)), for example, can be used to automatically configure a pipeline for each branch or PR. When the branch or PR goes away, their pipeline instances will be archived automatically.
+
+
+[set-pipeline-rfc]: https://github.com/concourse/rfcs/pull/31
