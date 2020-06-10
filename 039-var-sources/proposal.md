@@ -1,8 +1,8 @@
 # Summary
 
 Introduces `var_sources`, a way to configure multiple named credential
-managers, initially at the pipeline-level but potentially at the system-level
-and project-level (concourse/rfcs#32).
+managers configured within a pipeline.
+
 
 # Motivation
 
@@ -12,65 +12,82 @@ entire cluster. This is limiting in a number of ways.
 ## Rigid path lookup schemes
 
 With auth for the credential manager configured at the system-level, each
-credential manager has to support some form of multi-tenancy so that team A's
-secrets are accessed separately from team B's secrets.
+credential manager has to support some form of multi-tenancy so that team A
+cannot access team B's secrets.
 
-The current strategy is to encode team and pipeline names in the paths for the
-keys that are looked up, but this has many downsides:
+The current strategy is to encode team and pipeline names in the
+paths/identifiers for the credentials that are looked up, but this has many
+downsides:
 
-* Path schemes are a brittle approach to the security of untrusted multi-tenant
-  installations, as it relies on the credential manager's credential
+* Naming schemes are a brittle approach to the security of untrusted
+  multi-tenant installations; it relies on the credential manager's
   identifiers to have a valid separator character that is also not allowed by
-  Concourse team and pipeline names. This makes certain credential managers,
-  e.g. Azure KeyVault which only allows `[a-z\-]+`, impossible to support.
+  Concourse team and pipeline names. This makes it impossible to support
+  certain credential managers, e.g. Azure KeyVault which only allows
+  `[a-z\-]+`.
 
-* This makes it impossible to share credentials between teams. Instead the
-  credential has to be duplicated under each team's path. This is a shame
-  because credential managers like Vault have full-fledged support for ACLs.
+* Forcing team names into the credential identifier makes it impossible to
+  share credentials between teams. Instead the credential has to be
+  duplicated under each team's path. This is a shame because credential
+  managers like Vault have full-fledged support for ACLs.
 
-* With Vault, this makes it impossible to use any backend except `kv`, because
-  all keys live under the same path scheme, and different backends can't be
-  mounted under paths managed by other backends. This removes a lot of the
-  value of using Vault in the first place.
+* With Vault, enforcing a path scheme makes it impossible to use any backend
+  except `kv` because different backends can't be mounted under paths managed
+  by other backends. This removes a lot of the value of using Vault in the
+  first place.
 
 ## "There can be only one"
 
 Only supporting a single credential manager really limits the possibilities of
 using credential managers for specialized use cases.
 
-A core tenent Concourse resources is that their content, i.e. version history
-and bits, should be addressable solely by the resource's configuration. That
-is, given a resource's `type:` and `source:`, the same version history will be
-returned on any Concourse installation, and can therefore be de-duped and
-shared across teams within an installation. This means not relying on cluster
-state for access control; resource types should entirely trust their `source:`.
+A core tenent of Concourse's "Resources" concept is that their content, i.e.
+version history and bits, should be addressable solely by the resource's
+configuration. That is, given a resource's `type:` and `source:`, the same
+version history will be returned on any Concourse installation, and can
+therefore be de-duped and shared across teams within an installation.
 
-This is problematic for resources which make use of IAM roles associated to
-their `worker` EC2 instances in order to authenticate, because in this case the
-resource's `source:` does not actually include any credentials. As a result, we
-cannot safely enable [global resources][global-resources-opt-out]. by default
-because these resources would share version history without even vetting their
-credentials.
+This tenent forbids relying on worker state for access control within a
+resource. Instead, resource types should only use their `source:`.
 
-A special credential manager could be implemented to acquire credentials via
-IAM roles on the `web` EC2 instance and then provide them to the `source:`
-configuration via `((vars))`. This way the `source:` configuration is the
-source of truth. This is discussed in [concourse/concourse#3023][issue-3023].
+This is problematic for resource types which make use of IAM roles associated
+to the worker EC2 instance that they run on in order to authenticate, because
+in this case the resource's `source:` does not actually include any
+credentials. As a result, we cannot safely enable [global
+resources][global-resources-opt-out] by default because these resources would
+share version history without even vetting their credentials.
 
-However, as there can only be one credential manager configured at a time,
-using that single "slot" just for IAM roles is a bit of a waste compared to a
-full-fledged credential manager that can be used for many more things.
+To resolve this issue, a var source could be implemented as a
+[Prototype][prototypes-rfc] that acquires credentials via EC2 IAM roles and
+then provides them to the `source:` configuration for a resource via
+`((vars))`. This way the `source:` configuration is still the source of
+truth, and we can still support worker-configured credentials.
+
+Tying back to this proposal, the above approach would be awkward to implement
+as a credential manager. With support for only a single credential manager,
+users would have to choose between using a general-purpose credential manager
+like Vault vs. a specialized use case such as EC2 IAM roles.
+
+If we introduce support for configuring multiple credential managers, and go
+beyond that to allowing them to be implemented at runtime via Prototypes, we
+can support all kinds of credential acquisition at once.
+
 
 # Proposal
 
-This proposal introduces a new kind of configuration: `var_sources`.
+This proposal introduces a new kind of configuration: var sources.
 
 This name "var source" is chosen to build on the existing terminology around
-`((vars))` and to directly relate them to one another. Calling them "var
-sources" instead of "credential managers" also allows them to be used for
-things that aren't necessarily credentials.
+`((vars))` and to directly relate them to one another.
 
-`var_sources` may be specified at a pipeline-level, like so:
+Calling them "var sources" instead of "credential managers" also allows them
+to be used for things that aren't necessarily credentials. [RFC #27][rfc-27]
+introduces a way to trigger a job when a var changes, which can be used for
+per-job timed interval triggers. [RFC #29][rfc-29] introduces a way to run a
+step "across" all vars, which could be used to e.g. set a pipeline for each
+pull request.
+
+Var sources are specified at a pipeline-level, like so:
 
 ```yaml
 var_sources:
@@ -90,24 +107,24 @@ identifier][valid-identifier-rfc]. This is used to explicitly reference the
 source from `((vars))` syntax so that there is no ambiguity. See
 [`VAR_SOURCE_NAME`](#VAR_SOURCE_NAME).
 
-A var source's `type` specifies one of the supported credential managers, e.g.
-`vault`, `credhub`, `kubernetes`. is responsible for interpreting
-`config`.
+Currently, a var source's `type` specifies one of the supported credential
+managers, e.g. `vault`, `credhub`, or `kubernetes`. In the future, this will
+refer to a [Prototype][prototypes-rfc].
 
-A var source's `config` is a "black box" to Concourse and is passed verbatim to
-the credential manager. This configuration should include any credentials
-necessary for authenticating with the credential manager.
+A var source's `config` is a "black box" to Concourse and is passed verbatim
+to the credential manager (or prototype). This configuration should include
+any credentials necessary for authenticating with the credential manager.
 
 A var source's `config` may use `((vars))` to obtain its own credentials,
-either using static templating or by using the system-level credential manager.
-Support for referencing sibling/parent var sources by name is an [open
-question](#question-var-sources-config-vars).
+either using static templating, the system-level credential manager, or other
+var sources (see [Inter-dependent var
+sources](#inter-dependent-var-sources)).
 
 ## `((var))` syntax
 
 The `((var))` syntax was introduced a long while back and was never formally
 specified or documented. This RFC proposes a change to it so now's a good time
-to lay it all out.
+to describe a spec.
 
 The full `((var))` syntax will be
 **`((VAR_SOURCE_NAME:SECRET_PATH.SECRET_FIELD))`**.
@@ -118,7 +135,7 @@ The full `((var))` syntax will be
   `var_sources` to use for the credential lookup. If omitted (along with the
   `:`), the globally configured credential manager is used.
 
-  A `VAR_SOURCE_NAME` must be a valid identifier per concourse/rfcs#(TODO).
+  A `VAR_SOURCE_NAME` must be a [valid identifier][valid-identifier-rfc].
 
 * #### `SECRET_PATH`
 
@@ -250,3 +267,6 @@ n/a
 [issue-3023]: https://github.com/concourse/concourse/issues/3023
 [projects-rfc]: https://github.com/concourse/rfcs/pull/32
 [valid-identifier-rfc]: https://github.com/concourse/rfcs/pull/40
+[prototypes-rfc]: https://github.com/concourse/rfcs/pull/37
+[rfc-27]: https://github.com/concourse/rfcs/pull/27
+[rfc-29]: https://github.com/concourse/rfcs/pull/29
