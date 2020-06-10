@@ -1,7 +1,8 @@
 # Summary
 
-Introduces `var_sources`, a way to configure multiple named credential
-managers configured within a pipeline.
+Introduces `var_sources`, a way pipelines to configure multiple named
+credential managers - and in the future, arbitrary
+[Prototype-based][prototypes-rfc] sources of `((vars))`.
 
 
 # Motivation
