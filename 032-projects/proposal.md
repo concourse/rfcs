@@ -255,6 +255,59 @@ Instead, these should be treated as two separate inputs. Your product code is an
 TODO: finish this thought - wrap it up by suggesting that 
 
 
+# Open Questions
+
+## Can Projects replace Teams?
+
+The Teams concept has evolved over time and never really had a strong identity. This is evidenced by its constant abuse as a tool for namespacing, rather than its intended function as a way for multiple independent teams to use a Concourse installation without knowing about each other. This weak identity and inconsistent usage makes it a difficult feature to design for - the awkwardness of using `fly` with multiple teams is evidence of that.
+
+Meanwhile, there has been a repeated call for full configuration automation - configuring teams, pipelines within those teams, and so on. The Projects concept gets us closer to this, but does not provide a way to automate team configuration.
+
+"Teams" and "Projects" are both mechanisms for namespacing pipelines and other information. In the interest of Concourse being built from a small set of non-overlapping concepts, can these two be unified?
+
+To do so, you could either add a permissions model to Projects or add the whole Projects functionality to Teams... which is to say that Teams on its own doesn't have much meat on its bones. Between the two names, I personally prefer "Projects" as the term "Teams" sort of implies Concourse is designed around large organizations, when in reality we want it to feel just as intuitive for small side-projects. (In fact, Concourse's old slogan was "CI that scales with your project!")
+
+To add a permissions model to Projects, we could add the existing RBAC configuration straight to the project config:
+
+```yaml
+name: ci
+
+roles:
+- name: member
+  github:
+    users: ["my-github-login"]
+    orgs: ["my-org"]
+    teams: ["my-other-org:my-team"]
+
+plan:
+- # ...
+```
+
+Projects configuring their own auth would be equivalent to today's behavior of allowing teams to update their own auth after they've been created. One small benefit to this is it ends up living in a config file that feels more permanent - the config file passed to `fly set-team --config` is sometimes written and then thrown away, while Project configs are designed to be checked in to a repo.
+
+For situations where the users/orgs can't or shouldn't be committed (e.g. a shared/reusable repo or a public repo where this may reveal sensitive information), they could also be configured on a `set_project` step:
+
+```yaml
+plan:
+- set_project: foo
+  roles: # ...
+```
+
+With this model, the `main` team would be replaced with a `root` project. This `root` project may then configure other projects with the `set_project` step - or it may just configure pipelines, or maybe it just runs a build. We would almost literally become "CI that scales with your Project" - and along the way, we would have an answer for the ever present need for full stack GitOps configuration.
+
+There are certainly all kinds of questions that this idea raises, but there seems to be a lot of potential for simplifying the surface area of Concourse and rallying around a stronger design that encourages Concoursey GitOps practices.
+
+Here are some questions that have theoretical answers already:
+
+* Per-team worker registration can be replaced with a "worker pool" concept which decouples workers from Teams and provides a path for associatig workers to Projects. An RFC will likely be written for this soon - some context is in [#5660](https://github.com/concourse/concourse/discussions/5660).
+* Per-team credential scoping can be replaced with [var-sources][var-sources-rfc] which provide a much more flexible way for pipelines to access credentials.
+
+What else might we run into? Here are some prompts:
+
+* Should *all* projects configure auth, or can some just "inherit" from their parent team?
+* What determines whether a project can configure another project with different authorization?
+  * Is this needed? Technically a team can already update its own configuration to allow arbitrary people - it just can't create other teams. With a nesting model, do we need to lock this down, or can we just give projects full agency?
+
 # New Implications
 
 ## Smoother learning curve
@@ -272,3 +325,6 @@ Now it can go like this:
 1. Build Plans + Resources (`plan:`, `get:`/`put:`)
 1. Tasks (`task:`, `fly execute`)
 1. Jobs/Pipelines (`set_pipeline` step/`fly set-pipeline`)
+
+
+[var-sources-rfc]: https://github.com/concourse/rfcs/pull/39
