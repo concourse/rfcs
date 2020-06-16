@@ -46,7 +46,7 @@ The API Handler will first send an event of the form:
 {
   "event": "INITIAL",
   "payload": [
-    // ... all current jobs (what we'd return without `?watch=true`)
+    "// ... all current jobs (what we'd return without `?watch=true`)"
   ]
 }
 ```
@@ -59,7 +59,7 @@ and will subsequently send events of the form:
   "payload": {
     "id": 123,
     "data": null | {
-      // ... single job
+      "// ... single job"
     }
   }
 }
@@ -112,7 +112,7 @@ I envision using the same notification bus with a few differences in how we make
 
 We'd then have an implementation of the previously mentioned `ListAllJobsWatcher` interface that makes use of the notification bus:
 
-```
+```go
 type Watcher struct {
     conn db.Conn
     ...
