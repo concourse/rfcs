@@ -146,6 +146,9 @@ The full `((var))` syntax will be
   Vault and CredHub have path semantics whereas Kubernetes and Azure KeyVault
   only support simple names.
 
+  For secret paths which contain special characters such as `.` or `:`,
+  a literal JSON string value can be specified: `((foo:"bar.baz".buzz))`.
+
   For credential managers which support path-based lookup, a `SECRET_PATH`
   without a leading `/` may be queried relative to a predefined set of path
   prefixes. This is how the Vault credential manager currently works; `foo` will
