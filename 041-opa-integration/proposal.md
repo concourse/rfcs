@@ -36,7 +36,7 @@ OPA is one of the implementations.
 
 * All API calls, for example `set-pipeline`, will also go through policy checks. If
 the check doesn't pass, API should return HTTP code 403 (forbidden).
-* `UsingImage` action will be sent to OPA before Concourse launches a container in
+* `UseImage` action will be sent to OPA before Concourse launches a container in
 `check/get/put/task` steps. If the check doesn't pass, the step should return an error
 indicating policy check not pass.
 
@@ -68,13 +68,13 @@ policies to to configured in the policy engine.
 * `cluster_name`: cluster name.
 * `cluster_version`: Concourse version
 * `action`: Action name. This follows same action names used in RBAC, plus an extra
-action `UsingImage`.
-* `http_method`: HTTP method of the action, for `UsingImage`, this field absents.
+action `UseImage`.
+* `http_method`: HTTP method of the action, for `UseImage`, this field absents.
 * `user`: username who invokes the action.
 * `team`: team name.
 * `pipeline`: pipeline name. Some action is not against a pipeline, then this field 
 can be omitted.
-* `data`: For API actions, `data` should carry data from the API call; for `UsingImage`
+* `data`: For API actions, `data` should carry data from the API call; for `UseImage`
 action, data is the image configuration.
 
 For example, a policy check request against `set_pipeline` looks like:
@@ -99,6 +99,34 @@ For example, a policy check request against `set_pipeline` looks like:
 }
 ```
 
+A policy check request of action `UseImage` looks like:
+
+```json
+{
+  "input": {
+    "service": "concourse",
+    "cluster_name": "some-cluster",
+    "cluster_version": "5.7.0",
+    "team": "some-team",
+    "pipeline": "some-pipeline",
+    "action": "UseImage",
+    "data": {
+      "image_type": "registry-image",
+      "image_source": {
+        "repository": "busybox",
+        "tag": "latest",
+        "username": "someone",
+        "password": "(redacted)"
+      }
+    }
+  }
+}
+```
+
+_NOTE: any secret appearing in `image_source` that is fetched from credential
+manager or var_sources should be redacted._
+
+
 ## Policy check switches
 
 If no policy manager is configured, then policy check is switched off.
@@ -112,7 +140,7 @@ generate a large amount of `ListAllPipelines`, and it makes not much sense to ch
 it.
 
 Users will tend to check with the policy manager for write actions rather than
-read-only actions. As all actions except `UsingImage` are invoked from HTTP, we 
+read-only actions. As all actions except `UseImage` are invoked from HTTP, we 
 can provide a filter, `policy-check-filter-http-method`, to specify HTTP 
 methods via which actions are invoked. To skip read-only action for policy 
 check, users may set `POST,PUT,DELETE` to the filter `policy-check-filter-http-
@@ -120,7 +148,7 @@ method`, so that `GET` actions will not go through policy check.
 
 User also may specifically want to or don't want to do run policy check against
 certain actions. For example, a cluster will want to check policy against only
-`SetPipeline`, or the other cluster don't want to check policy against `UsingImage`,
+`SetPipeline`, or the other cluster don't want to check policy against `UseImage`,
 for which two more filters, `policy-check-filter-action` and `policy-check-
 filter-action-skip` are supported. If an action is defined in action list, then 
 the action will always go through policy check, vice versa for action-skip list. 
