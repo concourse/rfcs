@@ -1,6 +1,9 @@
+* RFC PR: [concourse/rfcs#39](https://github.com/concourse/rfcs/pull/39)
+* Concourse Issue: [concourse/concourse#5813](https://github.com/concourse/concourse/issues/5813)
+
 # Summary
 
-Introduces `var_sources`, a way pipelines to configure multiple named
+Introduces `var_sources`, a way for pipelines to configure multiple named
 credential managers - and in the future, arbitrary
 [Prototype-based][prototypes-rfc] sources of `((vars))`.
 
