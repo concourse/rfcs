@@ -1,3 +1,6 @@
+* RFC PR: [concourse/rfcs#33](https://github.com/concourse/rfcs/pull/33)
+* Concourse Issue: [concourse/concourse#5808](https://github.com/concourse/concourse/issues/5808)
+
 # Summary
 
 Instanced pipelines group together pipelines which share a common template configured with different ((vars)). They provide a simple two-level hierarchy and automatic archiving of instances which are no longer needed.
