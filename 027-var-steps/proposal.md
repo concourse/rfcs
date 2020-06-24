@@ -1,3 +1,6 @@
+* RFC PR: [concourse/rfcs#27](https://github.com/concourse/rfcs/pull/27)
+* Concourse Issue: [concourse/concourse#5815](https://github.com/concourse/concourse/issues/5815)
+
 # var steps + local var sources
 
 This proposal introduces two new step types - `load_var` and `get_var` - along
