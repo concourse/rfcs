@@ -1,3 +1,6 @@
+* RFC PR: [concourse/rfcs#31](https://github.com/concourse/rfcs/pull/31)
+* Concourse Issue: [concourse/concourse#5814](https://github.com/concourse/concourse/issues/5814)
+
 # Summary
 
 This RFC proposes a new `set_pipeline` step type for configuring pipelines within a build plan.
@@ -18,7 +21,7 @@ If we had native support for a `set_pipeline` step, both of these problems would
 
 By having a `set_pipeline` step in the build plan, we can start to improve Concourse's story around automating the full CI stack for projects of all sizes. Users can start to trust that pipelines are always configured via CI, and they can go over the build history to see who changed what and when.
 
-Later RFCs (namely, 'projects' and 'instanced pipelines') will build on this idea to provide a truly continuous workflow for automating pipelines - including their automatic archival when they're no longer needed, in the case of instanced pipelines.
+Later RFCs (namely, 'projects' and 'instanced pipelines') will build on this idea to provide a truly continuous workflow for automating pipelines - including their automatic archival when they're no longer needed.
 
 
 # Proposal
@@ -36,7 +39,7 @@ The `x` in `set_pipeline: x` is the pipeline name, and `file:` would be used to 
 
 The pipeline would be configured within whichever team the build execution belongs to.
 
-Upon first configuration pipeline will be automatically unpaused, as opposed to `fly set-pipeline` which puts newly configured pipelines in paused state by default. The assumption here is that if you're automating `set_pipeline` you're not just kicking the tires and can probably trust the pipelines that you're configuring are correct, at least enough to have made it into version control.
+Upon first configuration the pipeline will be automatically unpaused, as opposed to `fly set-pipeline` which puts newly configured pipelines in paused state by default. The assumption here is that if you're automating `set_pipeline` you're not just kicking the tires and can probably trust the pipelines that you're configuring are correct, at least enough to have made it into version control.
 
 When configuring an existing pipeline, however, the pipeline's paused status will not be changed. In other words, the `set_pipeline` step will leave already-existing paused pipelines in the paused state. The assumption here is that the pipeline has been manually paused by a pipeline operator, possibly in response to an emergent situation, and it should be left alone.
 
