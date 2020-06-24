@@ -1,3 +1,6 @@
+* RFC PR: [concourse/rfcs#33](https://github.com/concourse/rfcs/pull/33)
+* Concourse Issue: [concourse/concourse#5807](https://github.com/concourse/concourse/issues/5807)
+
 # Summary
 
 This proposal outlines a relatively straightforward 'archiving' operation which can be used to soft-delete a pipeline while preserving its data for later perusal.
