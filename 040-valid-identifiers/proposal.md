@@ -1,3 +1,6 @@
+* RFC PR: [concourse/rfcs#40](https://github.com/concourse/rfcs/pull/40)
+* Concourse Issue: [concourse/concourse#5810](https://github.com/concourse/concourse/issues/5810)
+
 # Summary
 
 Proposes a fairly limited set of valid characters for use in Concourse
@@ -104,7 +107,8 @@ The following API resources can already be renamed manually:
   preserve their build history.
 * Step names can be renamed without any migration necessary.
 
-Resources cannot currently be renamed, so this may need to be supported first.
+Resources cannot currently be renamed; support for doing so will need to be
+implemented before enforcing resource identifier validation.
 
 ## Easing the transition
 
@@ -129,14 +133,7 @@ After one year, we can turn these warnings into errors.
 
 # Open Questions
 
-## Are there any users who would become 'blocked' by this change?
-
-Aside from strong personal preference, are there any Concourse users that would
-be unable to upgrade given the new rules?
-
-To put it another way: imagining Concourse had this strict naming convention
-from the get-go, are there any users who would *not be able to use Concourse*
-as a result?
+n/a
 
 
 # Answered Questions
@@ -157,6 +154,18 @@ as a result?
   related pipelines will be grouped together, the values no longer have to be
   sanitized, and the pipeline name is now just `dependency`, conforming to this
   RFC.
+
+* **Are there any users who would become 'blocked' by this change?**
+
+  Aside from strong personal preference, are there any Concourse users that would
+  be unable to upgrade given the new rules?
+
+  To put it another way: imagining Concourse had this strict naming convention
+  from the get-go, are there any users who would *not be able to use Concourse*
+  as a result?
+
+  *(No one came forward with this RFC open for almost a year, so I guess that
+  answers that.)*
 
 
 # New Implications
