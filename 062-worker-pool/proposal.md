@@ -37,7 +37,7 @@ With introducing a new concept "worker pool", we build N-N relationship between
 workers and teams:
 
 ```
-  Workers (0..n) <----> (1) Worker Pool (1) <------> (0..n) Teams
+  Workers (0..n) <----> (0..1) Worker Pool (0..n) <------> (0..n) Teams
 ```
 
 * A worker pool may contain 0 or multiple workers.
@@ -48,22 +48,30 @@ team directly.
 * If a worker is not added to any worker pool, then it can still be associated
 with a team directly for backward-compatibility.
 * A worker pool may be assign to 0 or multiple teams.
-* A team can be associated with at most 1 worker pool.
-* A team can still be associated with a worker directly for backward-compatibility.
-* A team may not associate with any worker pool or team for backward-compatibility.
+* A team can be associated with 0 or multiple worker pools. When a team is 
+associated with multiple worker pools, candidate workers will be union of
+those pools.
 
 The logic of choosing a worker for a step will look like:
 
 ```go
    team := step.TeamName()
-   var candidateWorkers = []Workers
-   if team.WorkerPool() != nil {
-      candidateWorkers = team.WorkerPool().Workers()
-   } else if team.Workers() != nil {
-      candidateWorkers = team.Workers()
-   } else {
-      candidateWorkers = AllNoTeamAndNoPoolWorkers()
+   var candidateWorkers = map[string][]Workers {
+      "primary":  []Workers{},
+      "fallback": []Workers{},
    }
+   if team.WorkerPools() != nil {
+      for _, pool := range team.WorkerPools() {
+         candidateWorkers["primary"] = append(candidateWorkers["primary"], pool.Workers())
+      }
+      candidateWorkers["fallback"] = AllSharedWorkers()
+   } else if team.Workers() != nil {
+      candidateWorkers["primary"] = append(candidateWorkers["primary"], team.Workers())
+   } else {
+      candidateWorkers["primary"] = append(candidateWorkers["primary"], AllSharedWorkers())
+   }
+   // chooseWorker should choose a worker from primary workers first, if not found then
+   // try fallback workers.
    chosenWorker, err := chooseWorker(candidateWorkers, step.Tags)
 ```
 
@@ -86,17 +94,17 @@ $ fly -t <target> worker-pools
 ### To create a worker pool:
 
 ```
-$ fly -t <target> set-worker-pool --create --name <pool name> [--public-worker-key=<public ssh key file>]
+$ fly -t <target> set-worker-pool --name <pool name> [--public-worker-key=<public ssh key file>]
 ```
 
 When creating a worker pool, it allows to optionally specify a ssh public key 
 file. If a public key is configured with a pool, then workers trying to join
 the pool must use the corresponding private key.
 
-### To delete a worker pool:
+### To destroy a worker pool:
 
 ```
-$ fly -t <target> delete-worker-pool --name <pool name>
+$ fly -t <target> destroy-worker-pool --name <pool name>
 ```
 
 A worker pool should only be able to be deleted if there is no team associated 
@@ -105,7 +113,7 @@ with it, and no worker in the pool.
 ## To associate a team with a worker pool
 
 ```
-$ fly -t <target> set-worker-pool --assoc --name <pool-name> --team <team name> [--team <team name2> ...]
+$ fly -t <target> attach-worker-pool --name <pool-name> --team <team name> [--team <team name2> ...]
 ```
 
 When associating a team with a worker pool, it should verify that the team
@@ -114,7 +122,7 @@ currently does not associate with any other worker pool.
 ## To dissociate a team from a worker pool
 
 ```
-$ fly -t <target> set-worker-pool --dissoc --name <pool-name> --team <team name> [--team <team name2> ...]
+$ fly -t <target> detach-worker-pool --name <pool-name> --team <team name> [--team <team name2> ...]
 ```
 
 ## RBAC
@@ -123,6 +131,34 @@ Only admin users have permission to create worker pools, list all worker pools, 
 associate teams to worker pools.
 
 ## Database
+
+1. Add a new table `worker_pools`. This table stores info of worker pools.
+
+```sql
+  CREATE TABLE worker_pools (
+      id integer NOT NULL,
+      name text NOT NULL,
+      public_worker_key text,
+  );
+```
+
+2. Add a column `worker_pool_id` to table `workers`.
+
+```sql
+  ALTER TABLE "workers" ADD COLUMN "worker_pool_id" integer;
+```
+
+3. Add a new table `worker_pool_teams`. This table stores relationship between
+worker pools and teams.
+
+```sql
+  CREATE TABLE worker_pool_teams (
+      worker_pool_id integer NOT NULL,
+      team_id integer NOT NULL,
+  );
+```
+
+_Note: omitting indexes and constraints in RFC._
 
 ## Worker process
 
@@ -136,7 +172,15 @@ No UI change needed.
 
 # Open Questions
 
-> Raise any concerns here for things you aren't sure about yet.
+1. Do we really need `--public-worker-key` option for `fly set-worker-pool`? This
+option provides a way to add a public worker key, which allows adding worker public
+keys without restarting ATC. However, the problem is, there is no way to ensure
+the specified public key only working for specified pool. Because public keys are
+used during SSL handshake, a bunch of known-authorized keys are given to `ssh.ServerConfig`,
+but we don't know which public key matched after handshake. The ATC option
+`--tsa-team-authorized-keys` has the same problem. So should we just add a separate
+command like `fly set-worker-public-key`? If yes, which could be a separate story 
+than this RFC.
 
 
 # Answered Questions
