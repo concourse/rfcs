@@ -1,6 +1,6 @@
 # Summary
 
-Add a `?watch=true` query parameter to several API endpoints to avoid needing to perform frequent polling in the UI.
+Allow watching several API endpoints for changes to avoid needing to perform frequent polling in the UI.
 
 
 # Motivation
@@ -12,60 +12,71 @@ Add a `?watch=true` query parameter to several API endpoints to avoid needing to
 
 # Proposal
 
-At a high level, I propose making use of Postgres' notification bus ([`NOTIFY`](https://www.postgresql.org/docs/9.5/sql-notify.html) and [`LISTEN`](https://www.postgresql.org/docs/9.5/sql-listen.html)) for detecting and propagating changes to the API handlers, [and server sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events) for sending these changes from the API handler to the clients (e.g. UI). Let's get a bit more concrete:
+At a high level, I propose making use of Postgres' notification bus ([`NOTIFY`](https://www.postgresql.org/docs/9.5/sql-notify.html) and [`LISTEN`](https://www.postgresql.org/docs/9.5/sql-listen.html)) for detecting and propagating changes to the API handlers, and [server sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events) for sending these changes from the API handler to the clients (e.g. UI). Let's get a bit more concrete:
 
 ## API
+
+By default, hitting the `ListAllJobs` endpoint will not start watching - it will behave as it currently does (i.e. return all of the visible jobs as JSON). To opt-in to watching, clients should set the `Accept` header to `text/event-stream`.
 
 I propose the following interface(s) to be consumed by the API Handlers:
 
 ```go
-type WatchEvent string
+type EventType string
 const (
-    Insert WatchEvent = "INSERT"
-    Update WatchEvent = "UPDATE"
-    Delete WatchEvent = "DELETE"
+    Put    EventType = "PUT"
+    Delete EventType = "DELETE"
 )
+
+type DashboardJobEvent struct {
+	ID   int
+	Type EventType
+	Job  *atc.DashboardJob
+}
 
 
 type ListAllJobsWatcher interface {
-    WatchListAllJobs(ctx context.Context, access accessor.Access, callback func(event WatchEvent, id int, job *atc.DashboardJob)) error
+    WatchListAllJobs(ctx context.Context, access accessor.Access) (<-chan []DashboardJobEvent, error)
 }
 
 // and other ...Watcher interfaces for different endpoints
 ```
 
-`WatchListAllJobs` will trigger `callback` whenever a job (that is visible to the user according to `access`) is inserted, updated, or deleted. The `callback` is invoked with the appropriate `WatchEvent` as well as the `id` of the job that was modified. In the case of a `Delete`, the corresponding `*atc.DashboardJob` will be `nil` - otherwise, it will contain the job to be sent directly to the client.
+`WatchListAllJobs` will send along the returned `chan` whenever a job (that is visible to the user according to `access`) is inserted, updated, or deleted. In the case of a `Delete`, the corresponding `*atc.DashboardJob` will be `nil` - otherwise, it will contain the job to be sent directly to the client.
 
-`WatchListAllJobs` will block until one of the following occurs:
-1. `ctx` is canceled, at which point it will return `nil`
-1. The Postgres notification bus reconnected (so events may have been missed), at which point it will return a non-`nil` error. The API handler will return a 503 status code, indicating to the client they should retry the request.
+`WatchListAllJobs` returns an error to support a few cases:
+
+1. Watch endpoints are disabled (enabling watch endpoints will be feature flagged, at least to start out with)
+1. We could set limits on the total number of watchers - if adding one more watcher would exceed this limit, we'd return an error
 
 The API Handler will first send an event of the form:
 
-```json
-{
-  "event": "INITIAL",
-  "payload": [
-    "// ... all current jobs (what we'd return without `?watch=true`)"
-  ]
-}
+```
+id: 0
+name: initial
+data: [
+  // all current jobs (what we'd return without watching)
+]
 ```
 
 and will subsequently send events of the form:
 
 ```json
-{
-  "event": "CREATE" | "UPDATE" | "DELETE",
-  "payload": {
-    "id": 123,
-    "data": null | {
-      "// ... single job"
+id: 123
+name: patch
+data: [
+  {
+    "id": 1,
+    "eventType": "PUT",
+    "job": {
+      // job 1
     }
-  }
-}
+  },
+  {
+    "id": 2,
+    "eventType": "DELETE"
+  },
+]
 ```
-
-where `"data"` is `null` iff `"event"` is `"DELETE"`.
 
 Note that I'm using `ListAllJobs` as an example, but a similar pattern can be followed for other endpoints.
 
@@ -75,7 +86,7 @@ We currently use Postgres' notification bus for communication between components
 
 I envision using the same notification bus with a few differences in how we make use of it:
 
-1. Rather than manually creating notifications, add a trigger to **each relevant Postgres table** (i.e. each table that is `JOIN`ed on for any query that can be watched) that looks something like:
+1. Rather than manually creating notifications, add a trigger to **each relevant Postgres table** that looks something like:
    ```sql
    CREATE TRIGGER some_table_notify AFTER INSERT OR UPDATE OR DELETE ON some_table
    FOR EACH ROW EXECUTE PROCEDURE notify_trigger(
@@ -83,7 +94,8 @@ I envision using the same notification bus with a few differences in how we make
    );
    ```
 
-   This will prevent needing to add a `NOTIFY` to every place where the data could change by handling it at the source of truth.
+   * This will prevent needing to add a `NOTIFY` to every place where the data could change by handling it at the source of truth.
+   * Determining **each relevant Postgres table** isn't necessarily something we should automate. For instance, we *could* watch all tables that we `JOIN` against in the `ListAllJobs` query for all types of changes, but that would be very noisy and would result in duplicate updates
 
 1. Our notifications will contain a payload consisting of the key of the entity being modified as well as the event type, e.g.
    ```json
@@ -108,7 +120,7 @@ I envision using the same notification bus with a few differences in how we make
 
    and the `...Watcher` implementations can consume the id that's relevant to them.
 
-1. Currently, our internal notification bus does not queue notifications up - if we receive a new notification, but the consumer hasn't processed it yet, we ignore the new notification. This made sense for our prior use cases (we only want to signal that something has changed), but doesn't when we want to know about every change that happens. You can find a potential implementation for this new behaviour here: https://github.com/concourse/concourse/pull/5651/commits/f0e1cacda4c2593512688e539d68c2aa5169686c
+1. Currently, our internal notification bus does not queue notifications up - if we receive a new notification, but the consumer hasn't processed it yet, we ignore the new notification. This made sense for our prior use cases (we only want to signal that something has changed), but doesn't when we want to know about every change that happens. You can find a potential implementation for this new behaviour here: https://github.com/concourse/concourse/pull/5802/commits/3686fed7d936b09d8179753c506d81fbcba95017
 
 We'd then have an implementation of the previously mentioned `ListAllJobsWatcher` interface that makes use of the notification bus:
 
@@ -163,7 +175,7 @@ Since all notifications for a given table are going through the same Postgres ch
 * What are the performance implications of Postgres' LISTEN/NOTIFY, or of having TRIGGERS for every modification in a table?
 * Are there any limits on LISTEN/NOTIFY that might hinder this approach at scale?
 * Should there be a timeout on the request?
-* What's the best way to ensure that the list of relevant tables remains consistent with the tables the queries are actually using? i.e. if we add a `JOIN` table on the `ListAllJobs` query, how can we ensure that we're monitoring events on that new table as well?
+* What's the best way to determine the list of "relevant tables" to watch?
 
 
 # Answered Questions
@@ -171,4 +183,5 @@ Since all notifications for a given table are going through the same Postgres ch
 
 # New Implications
 
-* The API will still support the endpoints without `?watch=true`, which should have the same behaviour as we have now
+* The API will still support the endpoints without watching, which should have the same behaviour as we have now
+* Watch endpoints can also be feature flagged, and the UI will fall back to polling
