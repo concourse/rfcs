@@ -170,10 +170,17 @@ Other examples of modifiers are `timeout`, `attempts`, `ensure`, and the `on_*`
 family of hooks.
 
 In terms of precedence, `across` would bind more tightly than `ensure` and
-`on_*` hooks, but less tightly than `across` and `timeout`. This seems to be
-the most sensible order, so that `attempts` doesn't retry the entire matrix and
-`timeout` can be enforced on each step (though the timeout enforcement would
-probably work just as well either way).
+`on_*` hooks, but less tightly than `across` and `timeout`.
+
+`ensure` and `on_*` bind to the `across` step so that they may be run after the
+full matrix completes.
+
+`attempts` binds to the inner step because it doesn't seem to make a whole lot
+of sense to retry the *entire matrix* because one step failed. The individual
+steps should be retried instead.
+
+`timeout` binds to the inner step because otherwise a `max_in_flight` could
+cause the timeout to be exceeded before some steps even get a chance to run.
 
 ```yaml
 task: unit
