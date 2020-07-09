@@ -220,12 +220,16 @@ on_failure: # runs after all steps complete and at least one failed
 
 ### Failing fast
 
-With `fail_fast: true` applied to the `across` step, all steps will be
-interrupted in the event that one fails:
+When a step within the matrix fails, the `across` step will continue to run the
+remaining steps in the matrix. However, the `across` step itself will still
+fail after all steps have completed.
+
+With `fail_fast: true` applied to the `across` step, execution will halt on the
+first failure, and any currently running steps (via `max_in_flight`) will be
+interrupted:
 
 ```yaml
 task: unit
-timeout: 1h # interrupt the task after 1 hour
 across:
 - var: go_version
   values: [1.12, 1.13]
@@ -233,8 +237,8 @@ fail_fast: true
 ```
 
 Note: this is the first time a step *modifier* has had additional sibling
-fields. In the event of a conflict (e.g. pretending `in_parallel` has
-`fail_fast`), the above `do:` syntax may be utilized as a work-around.
+fields. In the event of a field conflict, the `do:` step may be utilized as a
+work-around.
 
 
 ## Open Questions
