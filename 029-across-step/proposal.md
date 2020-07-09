@@ -163,6 +163,73 @@ Note that this can be applied to either static `values:` or dynamic vars from
 `source:` - both cases just boil down to a comparison against the previous
 build's set of values.
 
+### Modifier syntax precedence
+
+The `across` step is a *modifier*, meaning it is attached to another step.
+Other examples of modifiers are `timeout`, `attempts`, `ensure`, and the `on_*`
+family of hooks.
+
+In terms of precedence, `across` would bind more tightly than `ensure` and
+`on_*` hooks, but less tightly than `across` and `timeout`. This seems to be
+the most sensible order, so that `attempts` doesn't retry the entire matrix and
+`timeout` can be enforced on each step (though the timeout enforcement would
+probably work just as well either way).
+
+```yaml
+task: unit
+timeout: 1h # interrupt the task after 1 hour
+attempts: 3 # attempt the task 3 times
+across:
+- var: go_version
+  values: [1.12, 1.13]
+on_failure: # do something after all steps complete and at least one failed
+```
+
+To apply `ensure` and `on_*` hooks to the nested step, rather than the `across`
+step modifier, the `do:` step may be utilized:
+
+```yaml
+do:
+- task: unit
+  on_failure: # runs after each individual step completes and fails
+across:
+- var: go_version
+  values: [1.12, 1.13]
+on_failure: # runs after all steps complete and at least one failed
+```
+
+This can be rewritten in a slightly more readable syntax by placing the `do:`
+below the `across:`:
+
+```yaml
+across:
+- var: go_version
+  values: [1.12, 1.13]
+do:
+- task: unit
+  on_failure: # runs after each individual step completes and fails
+on_failure: # runs after all steps complete and at least one failed
+```
+
+### Failing fast
+
+With `fail_fast: true` applied to the `across` step, all steps will be
+interrupted in the event that one fails:
+
+```yaml
+task: unit
+timeout: 1h # interrupt the task after 1 hour
+across:
+- var: go_version
+  values: [1.12, 1.13]
+fail_fast: true
+```
+
+Note: this is the first time a step *modifier* has had additional sibling
+fields. In the event of a conflict (e.g. pretending `in_parallel` has
+`fail_fast`), the above `do:` syntax may be utilized as a work-around.
+
+
 ## Open Questions
 
 * n/a
