@@ -1,3 +1,6 @@
+* RFC PR: [concourse/rfcs#38](https://github.com/concourse/rfcs/38)
+* Concourse Issue: [concourse/concourse#5870](https://github.com/concourse/concourse/issues/5870)
+
 # Resource Prototypes
 
 A *resource prototype* is an interface implemented by a prototype which allows
