@@ -240,6 +240,50 @@ Note: this is the first time a step *modifier* has had additional sibling
 fields. In the event of a field conflict, the `do:` step may be utilized as a
 work-around.
 
+### Var scoping and shadowing
+
+The inner step will be run with a local var scope that inherits from the outer
+scope and is initialized with the across step's var values.
+
+Given that it runs with its own scope, it follows that the vars in the local
+scope, along with any vars newly set within the scope, are not accessible
+outside of the `across` step.
+
+When a var set by the `across` step shadows outer vars, a warning will be
+printed.
+
+Example:
+
+```yaml
+plan:
+- get_var: foo
+  trigger: true
+- run: print
+  type: debug
+  params: {value: ((.:foo))}
+- across:
+  - var: foo
+    values: [one, two]
+  do:
+  - run: print
+    type: debug
+    params: {value: ((.:foo))}
+- run: print
+  type: debug
+  params: {value: ((.:foo))}
+```
+
+Assuming the `get_var` step produces a value of `zero`, this build plan should
+result in the following output:
+
+```
+zero
+WARNING: across step shadows local var 'foo'
+one
+two
+zero
+```
+
 
 ## Open Questions
 
