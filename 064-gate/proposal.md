@@ -36,7 +36,7 @@ For the above use case 1, `gate` can be used like:
   file: sonar-scan/result.json
 
 - gate: code-coverage-gate
-  condition: ((.:scan-result.coverage_rate)) < 0.85
+  condition: <a bool expression>
 
 ```
 
@@ -49,28 +49,71 @@ For the above use case 2, `gate` can be used like:
   file: mr/mr_metadata.json
 
 - gate: no-release-gate
-  condition: no-release in ((.:mr_info.labels))
-  fail: false
+  condition: <a bool expression>
+  nofail: true
 ```
+
+## Step definition
 
 Step `gate` takes a name for description of the gate, and takes the following
 parameters:
 
 * `condition` a boolean expression. when `condition` is true, abort the build.
-* `fail` if `fail` is true, fail the build `condition` is true; otherwise abort the build
-with succeeded result.
+* `nofail` by default, if `condition` is true, the build will fail. If you just
+want to silently quit the build (with succeeded result), then set `nofail` to 
+true.
+* `objects` a list of objects defined as:
+  * `name` object name
+  * `file` file name to load the object. The file should be in json or yaml format.
+
+## Condition syntax
+
+After some research, I found the package https://github.com/PaesslerAG/gval can
+be used for expression evaluation. It supports basic evalutation syntax, and can
+be extended to support more operations.
+
+### Integer operations and comparisons
+
+```yaml
+- load_var: mr_info
+  file: mr/data.json
+
+- gate: some-gate
+  condition: ( ( ((.:mr_info.error)) + ((.:mr_info.failure)) ) / 300 ) > 0.85
+```
+
+### String operations and comparisons
+
+```yaml
+- load_var: mr_info
+  file: mr/data.json
+
+- gate: some-gate
+  condition: "((.:mr_info.result))" == "success"
+```
+
+```yaml
+- load_var: mr_info
+  file: mr/data.json
+
+- gate: some-gate
+  condition: prefix_with( "((.:mr_info.subject))", "WIP" )
+```
+
+### JSON object operations
+
+```yaml
+- gate: some-gate
+  condition: "no-release" in mr_info.lables
+  objects:
+  - name: mr_info
+    file: mr/data.json
+```
+
 
 # Open Questions
 
-How to define `condition`? 
-
-Basically `condition` will be evaluated to a boolean value.
-An expression may contains:
-
-* integer comparison
-* string comparison
-* not logic
-* check if an item is in a list
+Any suggestions to condition syntax?
 
 # Answered Questions
 
