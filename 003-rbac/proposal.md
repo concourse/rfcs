@@ -1,3 +1,6 @@
+* RFC PR: [concourse/rfcs#6](https://github.com/concourse/rfcs/pull/6)
+* Concourse Issue: n/a
+
 # Summary
 
 This proposal outlines the beginnings of support for Role Based Access Control
