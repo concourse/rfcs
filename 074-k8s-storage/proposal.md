@@ -8,7 +8,7 @@ After spiking on a few solutions for storage on Kubernetes our recommendation is
 
 # Motivation
 
-As we started thinking about the Kubernetes runtime we realized that we need to think about what our storage solution would be before proceeding with any other part of the implementation. Storage has a huge effect on how Concourse interacts with the runtime (Kubernetes). Storage also had a lot of unknowns, we didn't know what the storage landscape on Kubernetes looked like and what options were available to us. Storage also has a huge impact on the perforamnce of the cluster, in regards to storage and initialization of steps.
+As we started thinking about the Kubernetes runtime we realized that we need to think about what our storage solution would be before proceeding with any other part of the implementation. Storage has a huge effect on how Concourse interacts with the runtime (Kubernetes). Storage also had a lot of unknowns, we didn't know what the storage landscape on Kubernetes looked like and what options were available to us. Storage also has a huge impact on the performance of the cluster, in regards to storage and initialization of steps.
 
 ## Requirements
 An ideal storage solution can do the following :
@@ -151,24 +151,18 @@ https://github.com/kubernetes/kubernetes/issues/7890)
 
 # Open Questions
 
-> Raise any concerns here for things you aren't sure about yet.
 - Do we implement our own version of the csi-image-populator?
 - Should we implement this as a CSI driver?
 
 
 # Answered Questions
 
-> If there were any major concerns that have already (or eventually, through
-> the RFC process) reached consensus, it can still help to include them along
-> with their resolution, if it's otherwise unclear.
->
-> This can be especially useful for RFCs that have taken a long time and there
-> were some subtle yet important details to get right.
->
-> This may very well be empty if the proposal is simple enough.
+
+# Related Links
+- [Storage Spike](https://github.com/concourse/concourse/issues/6036)
+- [Review k8s worker POC](https://github.com/concourse/concourse/issues/5986)
 
 
 # New Implications
 
-> What is the impact of this change, outside of the change itself? How might it
-> change peoples' workflows today, good or bad?
+Will drive the rest of the Kubernetes runtime work.
