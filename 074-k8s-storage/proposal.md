@@ -25,9 +25,9 @@ An ideal storage solution can do the following :
 
 # Proposal
 
-**TL;DR**: We recommend going with the image registry option because it satisfies all the requirements and gives us a bunch of options to improve performance when compared to the blobstore option. It also provides a very flexible solution that works across multiple runtime workers. [See Details TODO](#image-registry-to-store-artifacts)
+**TL;DR**: We recommend going with the image registry option because it satisfies all the requirements and gives us a bunch of options to improve performance when compared to the blobstore option. It also provides a very flexible solution that works across multiple runtime workers. [See Details](#image-registry-to-store-artifacts)
 
-Furthermore, the CSI is a useful interface for building the storage component against. [See Details TODO](#csi)
+Furthermore, the CSI is a useful interface for building the storage component against. [See Details](#csi)
 
 # Storage Options considered
 ## Baggageclaim Daemonset 
