@@ -146,8 +146,7 @@ The CSI spec can be used to wrap every solution listed above. It provides an API
 - the CSI version may be tied to a K8s version
 
 ## Fuse
-This might simplify our usage of external storage solutions such as blobstores. There isn't a supported solution in K8s at the moment. However, this would be something worth considering if that were to change. Current [issue requesting K8s development](## Fuse
-https://github.com/kubernetes/kubernetes/issues/7890)
+This might simplify our usage of external storage solutions such as blobstores. There isn't a supported solution in K8s at the moment. However, this would be something worth considering if that were to change. [Click here to view the current issue requesting K8s development](https://github.com/kubernetes/kubernetes/issues/7890).
 
 # Open Questions
 
