@@ -107,7 +107,7 @@ Each **cache object** would be stored in its own persistent volume. Persistent v
 ### Cons
 - Wouldn't have support for hosting images by default.
 - IaaS based limits on [volume limits per node](https://kubernetes.io/docs/concepts/storage/storage-limits/#dynamic-volume-limits) prevents this from being a scalable solution
-- CSI Snapshotting feature is optional and not every driver supports it (LINK)
+- CSI Snapshotting feature is optional and not every driver supports it ([Drivers & features they support](https://kubernetes-csi.github.io/docs/drivers.html#production-drivers))
 - As this would NOT be a centralized storage solution, it wouldn't support workers across multiple runtimes or even K8s clusters
 
 ## K8s POC (Baggagelciam peer-to-peer)
