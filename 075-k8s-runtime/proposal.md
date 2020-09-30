@@ -1,0 +1,81 @@
+# Summary
+
+An overview of how we plan to implement Kubernetes as a runtime for Concourse.
+
+# Motivation
+
+We want to leverage Kubernetes as a runtime for container orchestration to alleviate the scheduling problems Concourse runs into (TODO: link to issues/task queue PR?).
+
+# Proposal
+
+## Boundary Where We Introduce Kubernetes Logic
+Same as the [k8s POC](https://github.com/concourse/concourse/issues/5209), implement the Kubernetes worker behind the [`worker.client`](https://github.com/concourse/concourse/blob/master/atc/worker/client.go).
+
+### Other Options
+* Behind the Garden API, similar to `containerd`. [More details in our review of the k8s POC](https://github.com/concourse/concourse/issues/5986#issuecomment-675061559).
+
+## Coordinating Container Execution
+As a starting point, do something similar to the [k8s POC](https://github.com/concourse/concourse/issues/5209), use an `init` binary to keep the Pod from being deleted. ATC then monitors the state of the running Pods and executes actions on those Pods. The storage solution we end up going with will be a heavy driver of how we end up coordinating container execution with fetching and saving inputs/outputs.
+
+### Other Options
+* The ATC does not execute actions on the pod. Instead the Pod definition contains everything we want executed and Concourse observes the result.
+  * Is live log streaming possible?
+  * Is it possible to persist the Pod after the desired aciton completes so it can be intercepted later?
+* [Porter](https://github.com/concourse/porter) Sidecar that uses external S3 compatible blobstore - sidecar container that monitors the execution of containers and coordinates them in the right order. Could be modified to use an image registry instead of S3 though.
+
+## Worker Mapping
+In the [k8s POC](https://github.com/concourse/concourse/issues/5209) a [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) in a [cluster](https://kubernetes.io/docs/concepts/architecture/) represent a single Concourse worker. This makes sense to us as it works with the multi-tenancy nature of Kubernetes and allows the Kubernetes cluster operator to manage and isolate Concourse workloads via the targeted namespace. With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
+
+### Other Options
+* Target an entire cluster. Still requires Concourse targetting namespace to make a pod but we take on the responsibility of choosing a namespace. Unclear why we'd want to do this.
+* Cluster + K8s Node. We'd be neglecting a lot of Kubernetes scheduling features with this option if we decide to tell Kubernetes which node to place workloads on.
+
+## Storage
+Currently planning to use an image registry. [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
+
+## Worker Lifecycle
+We want to continue using the Concourse API to register and heartbeat the Kubernetes worker. This gives us flexibility to extract the Kubernetes worker component in the future.
+
+The **Worker Lifecycle component** would be responsible for the following;
+  * **Registration**: ATC reaches out to Kubernetes cluster. Registers as a worker if it can successfully communicate with the Kubernetes API. Will communicate through the Concourse API.
+  * **Heartbeating/Running/Stalled**: Planning to have some component/thread on the ATC that checks that the Kubernetes API is still reachable. If it's no longer reachable then the heartbeat fails and the Kubernetes worker stalls. Will communicate through the Concourse API.
+  * **Land(ing/ed)**: Stop scheduling workloads on the worker.
+  * **Retir(ing/ed)**: Stop scheduling workloads on the worker.
+  * **Container GC**: Worker would be responsible for cleaning up step pods that are no longer required by the web
+  * **Volume GC**: Worker would be responsible for cleaning up local **cache objects** that are no longer required by the web. 
+
+## Image Registry Lifecycle
+The **image registry lifecycle component** would be responsible for;
+  * **Volume GC**: would be responsible for cleaning up global **cache objects** that are no longer required by the web. How this works will depend on our storage solution.
+
+## Authenticating to the k8s worker
+
+
+## Authenticating to the web API
+The **Worker Lifecycle Component** should have its own identity (client id & secret) to communicate with the web API securely. 
+
+Ideally, each instance of the component should have its own unique identity. 
+
+# Open Questions
+
+* How should [worker `tags`](https://concourse-ci.org/concourse-worker.html#worker-configuration) be used? Should we pass the tag down to Kubernetes as the node name or not pass it down at all?
+  * Current Thoughts: We should not pass the tag down to Kubernetes. Tags are used in Concourse to select a set of workers and if we are treating Kubernetes as a worker then it should not operate on the tag(s) like workers currently behave.
+* Worker lifecycle: With volumes being stored in an image registry volumes are no longer associated with a specific worker. Should we change what it means to "Retire" a worker? This will be driven out by how we develop the storage solution.
+* Today the TSA component provides two services: 1) securing communication to and from the worker and 2) allowing a public web instance to talk to a woker inside a private network. With a Kubernetes worker communication is already secure. Is there some third-party tool we can leverage to achieve the second service that TSA currently provides us?
+
+# Answered Questions
+
+> If there were any major concerns that have already (or eventually, through
+> the RFC process) reached consensus, it can still help to include them along
+> with their resolution, if it's otherwise unclear.
+>
+> This can be especially useful for RFCs that have taken a long time and there
+> were some subtle yet important details to get right.
+>
+> This may very well be empty if the proposal is simple enough.
+
+
+# New Implications
+
+> What is the impact of this change, outside of the change itself? How might it
+> change peoples' workflows today, good or bad?
