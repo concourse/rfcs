@@ -125,6 +125,7 @@ Ideally, each instance of the component should have its own unique identity.
   + Output mapping
   + Task cache
   + Container limits
+  + Privileged container
   + rootfs_uri ?
 
 1. Fly Execute
@@ -134,7 +135,6 @@ Ideally, each instance of the component should have its own unique identity.
   + upload inputs
   + image from a pipeline->job->step
   + outputs
-
 
 1. Fly Hijack
 
@@ -164,7 +164,22 @@ Ideally, each instance of the component should have its own unique identity.
   + Check step
   + Get step
   + Put step
+1. Hello World (`Task.file`)
 
+1. Hello World (Add support for `Task.image`)
+```
+resources:
+- name: my-image
+  type: registry-image
+  source: {repository: golang, tag: "1.13"}
+
+jobs:
+- name: use-image
+  plan:
+  - get: my-image
+  - task: unit
+    image: my-image
+```
 1. Hello World (Add support for `image_resource`)
   ```
   ---
