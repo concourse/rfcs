@@ -84,6 +84,8 @@ Ideally, each instance of the component should have its own unique identity.
               path: echo
               args: ["Hello, world!"]
   ```
+  + Task with params
+
 1. Hello World (2 tasks with inputs/outputs,without `image_resource`)
   ```
   ---
@@ -117,6 +119,25 @@ Ideally, each instance of the component should have its own unique identity.
               args:
                 - ./files/created_file
   ```
+  + Task with output
+  + Task with input
+  + Input mapping
+  + Output mapping
+  + Task cache
+  + Container limits
+  + rootfs_uri ?
+
+1. Fly Execute
+  + `params`
+  + worker `tag`
+  + `--inputs-from`
+  + upload inputs
+  + image from a pipeline->job->step
+  + outputs
+
+
+1. Fly Hijack
+
 1. Booklit Sample (Resources support)
   ```
   resources:
@@ -140,7 +161,9 @@ Ideally, each instance of the component should have its own unique identity.
         run:
           path: booklit/ci/test
   ```
-  + Booklit with params
+  + Check step
+  + Get step
+  + Put step
 
 1. Hello World (Add support for `image_resource`)
   ```
@@ -162,7 +185,8 @@ Ideally, each instance of the component should have its own unique identity.
 
 1. 2 steps tagged with 2 workers
 1. 2 steps tagged with 2 workers on different runtimes (K8s + containerd)
-
+1. Hello World ( Windows platform )
+1. Resources ( Windows platform )
 
 
 
