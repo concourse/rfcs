@@ -64,12 +64,18 @@ Ideally, each instance of the component should have its own unique identity.
 1. 1 K8s worker & Concourse web external (Simpler for local development)
   + register worker
   + heartbeat
+1. Fly workers
+1. Fly containers
+1. Fly volumes
 1. Pod GC'ing - only delete pods we know about. Ignore other pods.
 1. 1 K8s worker & Concourse web in-cluster
 1. Image Registry GC'ing
 1. Worker retiring/landing
   + fly land-worker
   + fly prune-worker
+1. Tracing
+1. Metrics (Placeholder)
+1. Default K8s container placement strategy
 
 ## Developer Use Cases
 1. Hello World (without `image_resource`)
@@ -143,6 +149,8 @@ Ideally, each instance of the component should have its own unique identity.
   + upload inputs
   + image from a pipeline->job->step
   + outputs
+
+1. Fly watch
 
 1. Fly Hijack
 
