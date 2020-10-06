@@ -62,10 +62,15 @@ Ideally, each instance of the component should have its own unique identity.
 # Milestones
 ## Operator Use Cases
 1. 1 K8s worker & Concourse web external (Simpler for local development)
-1. Pod GC'ing
+  + register worker
+  + heartbeat
+1. Pod GC'ing - only delete pods we know about. Ignore other pods.
 1. 1 K8s worker & Concourse web in-cluster
 1. Image Registry GC'ing
 1. Worker retiring/landing
+  + fly land-worker
+  + fly prune-worker
+
 ## Developer Use Cases
 1. Hello World (without `image_resource`)
   ```
@@ -85,6 +90,10 @@ Ideally, each instance of the component should have its own unique identity.
               args: ["Hello, world!"]
   ```
   + Task with params
+  + Container limits
+  + Privileged container
+  + fly abort
+  + stream/capture stdout & stderr
 
 1. Hello World (2 tasks with inputs/outputs,without `image_resource`)
   ```
@@ -124,8 +133,7 @@ Ideally, each instance of the component should have its own unique identity.
   + Input mapping
   + Output mapping
   + Task cache
-  + Container limits
-  + Privileged container
+  + fly clear-task-cache
   + rootfs_uri ?
 
 1. Fly Execute
@@ -150,21 +158,56 @@ Ideally, each instance of the component should have its own unique identity.
     plan:
     - get: booklit
       trigger: true
-    - task: test
-      config:
-        platform: linux
-        image_resource:
-          type: registry-image
-          source: {repository: golang}
-        inputs:
-        - name: booklit
-        run:
-          path: booklit/ci/test
   ```
   + Check step
+    + logs (capture stderr)
+    + abort
   + Get step
-  + Put step
+    + logs (capture stderr)
+    + abort
+
+1. Put step
+  ```
+  resources:
+  - name: booklit
+    type: git
+    source: {uri: "https://github.com/vito/booklit"}
+
+  - name: booklit-dev
+    type: git
+    source:
+      uri: "https://github.com/vito/booklit"
+      branch: dev
+
+  jobs:
+  - name: unit
+    plan:
+    - get: booklit
+      trigger: true
+    - put: booklit-dev
+      params:
+        repository: booklit
+  ```
+
+  + logs (capture stderr)
+  + abort
+
 1. Hello World (`Task.file`)
+
+```
+resources:
+- name: my-repo
+  type: git
+  source: # ...
+
+jobs:
+- name: use-task-file
+  plan:
+  - get: my-repo
+  - task: unit
+    file: my-repo/ci/unit.yml
+```
+  + Task with vars
 
 1. Hello World (Add support for `Task.image`)
 ```
@@ -198,10 +241,10 @@ jobs:
               args: ["Hello, world!"]
   ```
 
-1. 2 steps tagged with 2 workers
-1. 2 steps tagged with 2 workers on different runtimes (K8s + containerd)
-1. Hello World ( Windows platform )
-1. Resources ( Windows platform )
+1. 2 steps tagged with 2 workers (k8s to k8s)
+1. 2 steps tagged with 2 workers on k8s and another runtime (K8s + containerd)
+1. Hello World ( k8s Windows platform )
+1. Resources ( k8s Windows platform )
 
 
 
