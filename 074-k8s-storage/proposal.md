@@ -96,6 +96,14 @@ Each **cache object** is stored in a blobstore. Concourse would require a manana
 - Adds extra initialization overhead. Concourse wouldn't have a local cache, so volumes would always have to be pushed & pulled for steps
 - Concourse would potentially be heavy user of the blobstore
 
+## Baggageclaim + CSI Implementation
+### Description
+TODO
+### Pros
+TODO
+### Cons
+TODO
+
 ## Persistent Volumes
 Each **cache object** would be stored in its own persistent volume. Persistent volume snapshots would be used to reference **cache object** versions.
 
