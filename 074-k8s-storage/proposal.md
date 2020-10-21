@@ -25,16 +25,15 @@ An ideal storage solution can do the following :
 
 # Proposal
 
-**TL;DR**: We recommend going with the image registry option because it satisfies all the requirements and gives us a bunch of options to improve performance when compared to the blobstore option. It also provides a very flexible solution that works across multiple runtime workers. [See Details](#image-registry-to-store-artifacts)
+**TL;DR**: After [spiking on the CSI driver interface](https://github.com/concourse/concourse/issues/6133) we now recommend creating a CSI driver based on baggageclaim.
 
 Furthermore, the CSI is a useful interface for building the storage component against. [See Details](#csi)
 
 # Storage Options considered
-## Baggageclaim Daemonset 
-### Description
-A privileged baggageclaim pod would manage all the **cache object** for step pods. The pod can be provided sufficient privilege to create overlay mounts using `BiDirectional` value for `mountPropagation`. The `volumeMount` object allows specifying a volume `subPath`.
 
-This approach didn't work using GCE PDs or vSphere Volumes ([Issue](https://github.com/kubernetes/kubernetes/issues/95049)). It does work using `hostPath` option, however, that would require a large root volume and wouldn't be able to leverage IaaS based persistent disks. 
+## Baggageclaim + CSI Implementation
+### Description
+A privileged baggageclaim pod would manage all the **cache object** for step pods. The baggageclaim pod can be provided sufficient privilege to create overlay mounts and have those mounts propagate back to the host using the `BiDirectional` value for `mountPropagation`.
 
 The pod would run on all nodes that Concourse would execute steps on.
  
@@ -42,14 +41,20 @@ The pod would run on all nodes that Concourse would execute steps on.
 + Leverage baggageclaim
 	+ volume streaming between nodes would work using the current Concourse architecture
 	+ resource and task caches would also work using the current Concourse architecture
-	+ would be able to stream **cache objects** across worker runtimes as it would be mediated via the web
-+ Concourse would have complete control over volume lifecycle
++ Web can manage stoage via native k8s stoage objects
+  + Concourse would have complete control over volume lifecycle
+  + Operator can query k8s api to observe all volumes
 + would have negligible overhead for steps scheduled on the same node as no input/output stream would be required
-
++ Disk where volumes are managed can be backed by any other CSI driver (as a long as baggageclaim can make overlay mounts on it)
+  + Can leverage tools in k8s to manage the disk that baggageclaim is writing to
 ### Cons
-- Not being able to use IaaS based persisent disks doesn't offer a viable solution. K8s nodes would need to have large root volumes.
+- CSI drivers are meant to guarantee storage capacity; baggageclaim does not currently do this, it provides unbounded disk space
+  - This CSI driver will not be meant for usage outside of Concourse
 - Wouldn't have support for hosting images by default. However, `baggageclaim` could be extended to add the APIs
+  - Crazy Idea 1: somehow load the image into the CRI that's running on the node
+  - Crazy Idea 2: Can a volumeMount override the root path (`/`)?
 - `baggageclaim` itself doesn't have any authentication/authorization or transport security (https) mechanisms built into it
+  - k8s has networking tools that we can leverage to ensure only authorized clients can talk to it
 
 ## Image Registry to store artifacts
 ### Description
@@ -95,14 +100,6 @@ Each **cache object** is stored in a blobstore. Concourse would require a manana
 - Lack of standardized APIs
 - Adds extra initialization overhead. Concourse wouldn't have a local cache, so volumes would always have to be pushed & pulled for steps
 - Concourse would potentially be heavy user of the blobstore
-
-## Baggageclaim + CSI Implementation
-### Description
-TODO
-### Pros
-TODO
-### Cons
-TODO
 
 ## Persistent Volumes
 Each **cache object** would be stored in its own persistent volume. Persistent volume snapshots would be used to reference **cache object** versions.
