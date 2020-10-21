@@ -35,6 +35,8 @@ In the [k8s POC](https://github.com/concourse/concourse/issues/5209) a [namespac
 ## Storage
 Currently planning to use an image registry. [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
 
+The current assumption would be that the registry is accessible by every K8s worker (including external workers).
+
 ## Worker Lifecycle
 We want to continue using the Concourse API to register and heartbeat the Kubernetes worker. This gives us flexibility to extract the Kubernetes worker component in the future.
 
@@ -78,6 +80,7 @@ Ideally, each instance of the component should have its own unique identity.
 1. Tracing
 1. Metrics (Placeholder)
 1. Default K8s container placement strategy
+1. External K8s worker that is not reachable by the web
 
 ## Developer Use Cases
 1. Hello World (without `image_resource`)
