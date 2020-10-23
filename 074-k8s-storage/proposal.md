@@ -155,16 +155,24 @@ This might simplify our usage of external storage solutions such as blobstores. 
 
 # Open Questions
 
-- Do we implement our own version of the csi-image-populator?
-- Should we implement this as a CSI driver?
+- When we need to have a volume available on multiple k8s nodes, how do we do this in a baggageclaim CSI driver?
+  - Would it make sense to support `ReadWriteMany` as the volume's `accessMode` instead of `ReadWriteOnce`?
+- What does the Concourse database model for volumes look like with a k8s worker running a baggageclaim CSI driver?
+- How will the CSI driver stream a volume between k8s nodes?
+  - What is the recommended way for a CSI controller to maintain state and know which volume is on which node(s)?
+- What is the recommended way to deploy the CSI driver? (e.g. StatefulSet, DaemonSet, etc.) _StatefulSet appears to fit our usecase best_
+- For volume streaming, should we go for the in-cluster P2P solution or stick with streaming through the Concourse web nodes?
 
 
 # Answered Questions
 
+- Should we implement this as a CSI driver? **Yes we do after doing the CSI Driver POC Spike**
+- Do we implement our own version of the csi-image-populator? **Yes but based on baggageclaim instead of image layers**
 
 # Related Links
 - [Storage Spike](https://github.com/concourse/concourse/issues/6036)
 - [Review k8s worker POC](https://github.com/concourse/concourse/issues/5986)
+- [CSI Driver POC Spike](https://github.com/concourse/concourse/issues/6133)
 
 
 # New Implications
