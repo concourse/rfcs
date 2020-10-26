@@ -72,9 +72,13 @@ When implementing a CSI driver for Kubernetes it is helpful to understand when c
 
 ## Proposed Implementation of Baggageclaim as a CSI Driver
 
+Targeting Kubernetes Version 1.19
+
 Follow the recommended deployment strategy from the Kubernetes team [described in this design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes) with the following differences:
-- no `external-resizer` container
-- no `external-snapshotter` container
+- no `external-resizer` container. Not planning to support resizing.
+- no `external-snapshotter` container. We will use the `CLONE_VOLUME` feature to create COW volumes in baggageclaim instead of trying to use snapshots.
+- An extra volume must be mounted for each Pod in the DaemonSet. This volume, which should be very large, will be used by baggageclaim to store the volumes that it creates on each Kubernetes node.
+- We plan to not guarantee the requested storage capicity because we have no idea how much space any given step in Concourse will use. Kubernetes will force us to specify a storage request but our CSI driver will ignore this value.
 
 
 # Storage Options considered
