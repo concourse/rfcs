@@ -29,6 +29,54 @@ An ideal storage solution can do the following :
 
 Furthermore, the CSI is a useful interface for building the storage component against. [See Details](#csi)
 
+## Level Setting
+
+### What does Baggageclaim do?
+
+Baggageclaim comes as two components: a client and a server communicating over an HTTP REST API. The server component manages volumes within a specified directory on the host.
+Volumes are created based on one of three strategies:
+- Empty Strategy: creates an empty volume
+- COW Strategy: creates a volume based on an existing volume
+- Import Strategy: creates a volume based on a local directory or tar ball
+
+Baggageclaim keeps tracks of all volumes by querying the filesystem structure, therefore no database component is needed. Volumes are assigned an ID that is passed in by the baggageclaim client.
+
+The [HTTP REST API](https://github.com/concourse/baggageclaim/blob/ea9252e4fcca101f32971cfb5ff47c3355c7c91e/api/handler.go#L26-L38) allows a baggageclaim client to:
+- Create volumes with one of the above strategies
+- Destroy volumes
+- Query for a list of all volumes
+- Query for the properties of a single volume
+- Stream the contents of a volume
+
+Supports multiple filesystem drivers (overlay, btrfs, naive\*). Overlay is the recommended driver to use as it's the most stable. All drivers support all features of baggageclaim.
+
+\* _naive simply `cp`'s files into new directories and isn't really a "filesystem"_
+
+### What's a CSI Driver?
+
+In a container orchestration (CO) system, such as Kubernetes or Cloud Foundry, you need a way to provide storage to containers. This could be ephemeral (lifecycle is tied to the container) or persistent (exists outside of the container's lifecycle) storage. In order to support many different storage providers the [CSI spec](https://github.com/container-storage-interface/spec/blob/master/spec.md) was made to allow CO's to have a consistent way to ask for storage for containers.
+
+A CSI driver is an implementation of a gRPC interface. The CO communicates with a CSI driver over a unix domain socket.
+
+A CSI driver is made up of two components, both serving different parts of the CSI's gRPC interface:
+
+**Controller Plugin**: Can be run anywhere. Serves the **Controller and Identity Service**.
+
+**Node Plugin**: Must be run on the Node where the storage requested by the CO is to be provisioned. Serves the **Node and Identity Service**. (Yes, the indentity service is served by both plugins).
+
+The full list of functions for the interface are available in the [CSI Spec](https://github.com/container-storage-interface/spec/blob/master/spec.md#rpc-interface). There is some flexibility as to how you architect your CSI driver. The [CSI spec has some examples](https://github.com/container-storage-interface/spec/blob/master/spec.md#architecture). The volume lifecycle the CSI driver is expected to follow is also [diagramed in the CSI Spec](https://github.com/container-storage-interface/spec/blob/master/spec.md#volume-lifecycle).
+
+When implementing a CSI driver for Kubernetes it is helpful to understand when certain CSI functions are called. CSI functions are typically called after the creation/modification of some Kubernetes API objects. It's important to note here that a CSI driver **does not know anything about kubernetes API objects**. In order for CSI functions to be called at the right time a CSI driver depends on various sidecar containers that monitor for certain Kubernetes Storage objects. These sidecars are provided by the Kubernetes team; a list of these ["helper containers" is available in this Kubernetes CSI Design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes).
+
+[The CSI Driver Spike](https://github.com/concourse/concourse/issues/6133#issuecomment-708471004) contains some notes that show which CSI functions are called when certain Kubernetes objects are created.
+
+## Proposed Implementation of Baggageclaim as a CSI Driver
+
+Follow the recommended deployment strategy from the Kubernetes team [described in this design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes) with the following differences:
+- no `external-resizer` container
+- no `external-snapshotter` container
+
+
 # Storage Options considered
 
 ## Baggageclaim + CSI Implementation
