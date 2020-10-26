@@ -14,7 +14,14 @@ Same as the [k8s POC](https://github.com/concourse/concourse/issues/5209), imple
 ### Other Options
 * Behind the Garden API, similar to `containerd`. [More details in our review of the k8s POC](https://github.com/concourse/concourse/issues/5986#issuecomment-675061559).
 
-## Step to Pod Mapping [TODO]
+## Step to Pod Mapping
+Execute each step as its own standalone pod. In Concourse a step is the smallest executable abstraction. A pod is the smallest executable abstraction in K8s.
+
+In this regard, step execution follows a similar pattern to Garden shown [here](https://github.com/concourse/concourse/issues/5209#issue-568335897).
+
+### Other Options
+* A job build could be mapped to a Pod. However, pods also don't provide any mechanisms for ordering of containers which would be required for steps. This step planning logic is also provided by the `exec` engine.
+* [SPIKE] Other K8s abstractions such as Jobs or other higher level abstractions such as Tekton TaskRuns could be explored
 
 ## Coordinating Container Execution
 As a starting point, do something similar to the [k8s POC](https://github.com/concourse/concourse/issues/5209), use an `init` binary to keep the Pod from being deleted. ATC then monitors the state of the running Pods and executes actions on those Pods. The storage solution we end up going with will be a heavy driver of how we end up coordinating container execution with fetching and saving inputs/outputs.
