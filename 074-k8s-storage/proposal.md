@@ -39,7 +39,7 @@ Volumes are created based on one of three strategies:
 - COW Strategy: creates a volume based on an existing volume
 - Import Strategy: creates a volume based on a local directory or tar ball
 
-Baggageclaim keeps tracks of all volumes by querying the filesystem structure, therefore no database component is needed. Volumes are assigned an ID that is passed in by the baggageclaim client.
+Baggageclaim keeps tracks of all volumes by querying the filesystem structure, therefore no database component is needed. Volumes are assigned an ID that is passed in by the baggageclaim client when the `CreateVolume` request is made.
 
 The [HTTP REST API](https://github.com/concourse/baggageclaim/blob/ea9252e4fcca101f32971cfb5ff47c3355c7c91e/api/handler.go#L26-L38) allows a baggageclaim client to:
 - Create volumes with one of the above strategies
@@ -54,7 +54,7 @@ Supports multiple filesystem drivers (overlay, btrfs, naive\*). Overlay is the r
 
 ### What's a CSI Driver?
 
-In a container orchestration (CO) system, such as Kubernetes or Cloud Foundry, you need a way to provide storage to containers. This could be ephemeral (lifecycle is tied to the container) or persistent (exists outside of the container's lifecycle) storage. In order to support many different storage providers the [CSI spec](https://github.com/container-storage-interface/spec/blob/master/spec.md) was made to allow CO's to have a consistent way to ask for storage for containers.
+In a container orchestration (CO) system, such as Kubernetes or Cloud Foundry, you need a way to provide storage to containers. This could be ephemeral (lifecycle is tied to the container) or persistent (operates outside of the container's lifecycle) storage. In order to support many different storage providers the [CSI spec](https://github.com/container-storage-interface/spec/blob/master/spec.md) was made to allow CO's to have a consistent way to ask for storage for containers.
 
 A CSI driver is an implementation of a gRPC interface. The CO communicates with a CSI driver over a unix domain socket.
 
@@ -77,11 +77,38 @@ Targeting Kubernetes Version 1.19
 Follow the recommended deployment strategy from the Kubernetes team [described in this design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes) with the following differences:
 - no `external-resizer` container. Not planning to support resizing.
 - no `external-snapshotter` container. We will use the `CLONE_VOLUME` feature to create COW volumes in baggageclaim instead of trying to use snapshots.
-- An extra volume must be mounted for each Pod in the DaemonSet. This volume, which should be very large, will be used by baggageclaim to store the volumes that it creates on each Kubernetes node.
-- We plan to not guarantee the requested storage capicity because we have no idea how much space any given step in Concourse will use. Kubernetes will force us to specify a storage request but our CSI driver will ignore this value.
+- An extra volume must be mounted for each replica Pod in the DaemonSet. This volume, which should be very large, will be used by baggageclaim to store the volumes that it creates on each Kubernetes node.
+- We plan to **not guarantee** the requested storage capicity because we have no idea how much space any given step in Concourse will use. Kubernetes will force us to specify a storage request but our CSI driver will ignore this value. This goes against the CSI spec.
+
+Let's go over some use cases to get an understanding about how the implementation may work.
+
+### Creating An Empty Volume
+
+A user creates a PVC:
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: empty-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce # the only accessMode we will support
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi # can be any value, we ignore this
+  storageClassName: baggageclaim
+```
+The [`external-provisioner`](https://github.com/kubernetes-csi/external-provisioner) will call `Controller.CreateVolume`. In this case `CreateVolume` will:
 
 
-# Storage Options considered
+### Creating A Cloned Volume
+
+### Streaming Volumes Inside A Kubernetes Cluster
+
+### Streaming Volumes To An External Baggageclaim
+
+# Alternative Storage Options considered
 
 ## Baggageclaim + CSI Implementation
 ### Description
