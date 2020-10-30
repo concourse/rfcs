@@ -72,8 +72,8 @@ Ideally, each instance of the component should have its own unique identity.
 # Milestones
 ## Operator Use Cases
 1. A K8s worker & external Concourse web (Simpler for local development)
-  + register worker
-  + heartbeat
+   + register worker
+   + heartbeat
 1. Fly workers
 1. Fly containers
 1. Fly volumes
@@ -81,184 +81,172 @@ Ideally, each instance of the component should have its own unique identity.
 1. Volume GC'ing
 1. A K8s worker & in-cluster Concourse web 
 1. Worker retiring/landing
-  + fly land-worker
-  + fly prune-worker
+   + fly land-worker
+   + fly prune-worker
 1. Tracing
 1. Metrics (Placeholder)
 1. External K8s worker that is not reachable by the web
 
 ## Developer Use Cases
 1. Hello World (without `image_resource`)
-  ```
-  ---
-  jobs:
-    - name: job
-      public: true
-      plan:
-        - task: simple-task
-          config:
-            platform: linux
-            image_resource:
-              type: registry-image
-              source: { repository: busybox }
-            run:
-              path: echo
-              args: ["Hello, world!"]
-  ```
-  + Task with params
-  + Container limits
-  + Privileged container
-  + fly abort
-  + stream/capture stdout & stderr
-
+   ```
+   ---
+   jobs:
+   - name: job
+     public: true
+     plan:
+     - task: simple-task
+       config:
+         platform: linux
+         image_resource:
+           type: registry-image
+           source: { repository: busybox }
+         run:
+           path: echo
+           args: ["Hello, world!"]
+   ```
+   * Task with params
+   * Container limits
+   * Privileged container
+   * fly abort
+   * stream/capture stdout & stderr
 1. Hello World (2 tasks with inputs/outputs,without `image_resource`)
-  ```
-  ---
-  jobs:
-    - name: create-and-consume
-      public: true
-      plan:
-        - task: make-a-file
-          config:
-            platform: linux
-            image_resource:
-              type: registry-image
-              source: { repository: busybox }
-            run:
-              path: sh
-              args:
-                - -exc
-                - ls -la; echo "Created a file on $(date)" > ./files/created_file
-            outputs:
-              - name: files
-        - task: consume-the-file
-          config:
-            platform: linux
-            image_resource:
-              type: registry-image
-              source: { repository: busybox }
-            inputs:
-              - name: files
-            run:
-              path: cat
-              args:
-                - ./files/created_file
-  ```
-  + Task with output
-  + Task with input
-  + Input mapping
-  + Output mapping
-  + Task cache
-  + fly clear-task-cache
-  + rootfs_uri ?
-
+   ```
+   ---
+   jobs:
+   - name: create-and-consume
+     public: true
+     plan:
+     - task: make-a-file
+       config:
+       platform: linux
+       image_resource:
+         type: registry-image
+         source: { repository: busybox }
+       run:
+         path: sh
+         args:
+         - -exc
+         - ls -la; echo "Created a file on $(date)" > ./files/created_file
+       outputs:
+        - name: files
+     - task: consume-the-file
+       config:
+         platform: linux
+         image_resource:
+           type: registry-image
+           source: { repository: busybox }
+         inputs:
+         - name: files
+         run:
+           path: cat
+           args:
+           - ./files/created_file
+   ```
+   * Task with output
+   * Task with input
+   * Input mapping
+   * Output mapping
+   * Task cache
+   * fly clear-task-cache
+   * rootfs_uri ?
 1. Fly Execute
-  + `params`
-  + worker `tag`
-  + `--inputs-from`
-  + upload inputs
-  + image from a pipeline->job->step
-  + outputs
-
+   * `params`
+   * worker `tag`
+   * `--inputs-from`
+   * upload inputs
+   * image from a pipeline->job->step
+   * outputs
 1. Fly watch
-
 1. Fly Hijack
-
 1. Booklit Sample (Resources support)
-  ```
-  resources:
-  - name: booklit
-    type: git
-    source: {uri: "https://github.com/vito/booklit"}
+   ```
+   resources:
+   - name: booklit
+     type: git
+     source: {uri: "https://github.com/vito/booklit"}
 
-  jobs:
-  - name: unit
-    plan:
-    - get: booklit
-      trigger: true
-  ```
-  + Check step
-    + logs (capture stderr)
-    + abort
-  + Get step
-    + logs (capture stderr)
-    + abort
-
+   jobs:
+   - name: unit
+     plan:
+     - get: booklit
+       trigger: true
+   ```
+   * Check step
+      * logs (capture stderr)
+      * abort
+   * Get step
+      * logs (capture stderr)
+      * abort
 1. Put step
-  ```
-  resources:
-  - name: booklit
-    type: git
-    source: {uri: "https://github.com/vito/booklit"}
+   ```
+   resources:
+   - name: booklit
+     type: git
+     source: {uri: "https://github.com/vito/booklit"}
 
-  - name: booklit-dev
-    type: git
-    source:
-      uri: "https://github.com/vito/booklit"
-      branch: dev
+   - name: booklit-dev
+     type: git
+     source:
+       uri: "https://github.com/vito/booklit"
+       branch: dev
 
-  jobs:
-  - name: unit
-    plan:
-    - get: booklit
-      trigger: true
-    - put: booklit-dev
-      params:
-        repository: booklit
-  ```
-
-  + logs (capture stderr)
-  + abort
-
+   jobs:
+   - name: unit
+     plan:
+     - get: booklit
+       trigger: true
+     - put: booklit-dev
+       params:
+         repository: booklit
+   ```
+   * logs (capture stderr)
+   * abort
 1. Hello World (`Task.file`)
+   ```
+   resources:
+   - name: my-repo
+     type: git
+     source: # ...
 
-```
-resources:
-- name: my-repo
-  type: git
-  source: # ...
-
-jobs:
-- name: use-task-file
-  plan:
-  - get: my-repo
-  - task: unit
-    file: my-repo/ci/unit.yml
-```
-  + Task with vars
-
+   jobs:
+   - name: use-task-file
+     plan:
+     - get: my-repo
+     - task: unit
+       file: my-repo/ci/unit.yml
+   ```
+   * Task with vars
 1. Hello World (Add support for `Task.image`)
-```
-resources:
-- name: my-image
-  type: registry-image
-  source: {repository: golang, tag: "1.13"}
-
-jobs:
-- name: use-image
-  plan:
-  - get: my-image
-  - task: unit
-    image: my-image
-```
+   ```
+   resources:
+   - name: my-image
+     type: registry-image
+     source: {repository: golang, tag: "1.13"}
+   jobs:
+   - name: use-image
+     plan:
+     - get: my-image
+     - task: unit
+       image: my-image
+   ```
 1. Hello World (Add support for `image_resource`)
-  ```
-  ---
-  jobs:
-    - name: job
-      public: true
-      plan:
-        - task: simple-task
-          config:
-            platform: linux
-            image_resource:
-              type: registry-image
-              source: { repository: busybox }
-            run:
-              path: echo
-              args: ["Hello, world!"]
-  ```
-
+   ```
+   ---
+   jobs:
+   - name: job
+     public: true
+     plan:
+     - task: simple-task
+       config:
+         platform: linux
+         image_resource:
+           type: registry-image
+           source: { repository: busybox }
+         run:
+           path: echo
+           args: ["Hello, world!"]
+   ```
 1. 2 steps tagged with 2 workers (k8s to k8s)
 1. 2 steps tagged with 2 workers on k8s and another runtime (K8s + containerd)
 1. Hello World ( k8s Windows platform )
