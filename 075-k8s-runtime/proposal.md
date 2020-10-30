@@ -14,8 +14,11 @@ We want to leverage Kubernetes as a runtime for container orchestration. The K8s
 # Proposal
 
 ## Worker Mapping
-In the [k8s POC](https://github.com/concourse/concourse/issues/5209) a [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) in a [cluster](https://kubernetes.io/docs/concepts/architecture/) represent a single Concourse worker. This makes sense to us as it works with the multi-tenancy nature of Kubernetes and allows the Kubernetes cluster operator to manage and isolate Concourse workloads via the targeted namespace. With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
+A K8s Concourse worker would be represented by a K8s worker + K8s namespace. This was the mapping suggested in the [k8s POC](https://github.com/concourse/concourse/issues/5209), where a [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) in a [cluster](https://kubernetes.io/docs/concepts/architecture/) represented a single Concourse worker.
 
+This leverages multi-tenant nature of Kubernetes and allows the Kubernetes cluster operator to manage and isolate Concourse workloads via the targeted namespace. It also allows an operator to configure capacity in a Concourse worker using [Resource Quotas](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/).
+
+With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
 
 ## Storage
 Currently planning to use an image registry. [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
@@ -255,7 +258,8 @@ jobs:
 # Open Questions
 
 * How should [worker `tags`](https://concourse-ci.org/concourse-worker.html#worker-configuration) be used? Should we pass the tag down to Kubernetes as the node name or not pass it down at all?
-  * Current Thoughts: We should not pass the tag down to Kubernetes. Tags are used in Concourse to select a set of workers and if we are treating Kubernetes as a worker then it should not operate on the tag(s) like workers currently behave.
+  * Option 1: We should not pass the tag down to Kubernetes. Tags are used in Concourse to select a set of workers and if we are treating Kubernetes as a worker then it should not operate on the tag(s) like workers currently behave.
+  * Option 2: The purpose of tags is to control where steps are or aren't executed. K8s provides a few ways of achieving this, such as `nodeSelector` or more flexibile [Affinity & Anti-Affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
 * Worker lifecycle: With volumes being stored in an image registry volumes are no longer associated with a specific worker. Should we change what it means to "Retire" a worker? This will be driven out by how we develop the storage solution.
 * Worker lifecycle: Should/could this component be run as a standalone component ?
   * The benefit of doing so would allow it to be managed separately from Concourse web. Scaling the web nodes is independent to scaling the worker lifecycle component. 
@@ -284,8 +288,8 @@ jobs:
 # Appendix
 
 ### Worker Mapping Alternatives
-* Target an entire cluster. Still requires Concourse targetting namespace to make a pod but we take on the responsibility of choosing a namespace. Unclear why we'd want to do this.
-* Cluster + K8s Node. We'd be neglecting a lot of Kubernetes scheduling features with this option if we decide to tell Kubernetes which node to place workloads on.
+* Target an entire cluster. It would require Concourse targetting namespace to make a pod. We couldn't think of any compelling reasons to suggest this structure.
+* Cluster + K8s Node. Concourse would bypass a lot of Kubernetes scheduling features with this option if Concourse decides which K8s node to place worklaods on.
 
 ### Boundary Where We Introduce Kubernetes Logic Alternatives
 * Behind the Garden API, similar to `containerd`. [More details in our review of the k8s POC](https://github.com/concourse/concourse/issues/5986#issuecomment-675061559).
