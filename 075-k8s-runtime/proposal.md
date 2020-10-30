@@ -265,7 +265,10 @@ jobs:
   * The benefit of doing so would allow it to be managed separately from Concourse web. Scaling the web nodes is independent to scaling the worker lifecycle component. 
 * Today the TSA component provides two services: 1) securing communication to and from the worker and 2) allowing a public web instance to talk to a woker inside a private network. With a Kubernetes worker communication is already secure. Is there some third-party tool we can leverage to achieve the second service that TSA currently provides us?
 * Container Execution: Where do we store task step status similar to updating garden container properties to store exit status ?
-* Authenticating to the k8s workder: How do we support different auth provdiers ?
+* Authenticating to the k8s worker
+	* How do we support different auth providers ?
+	* How do we support multiple worker configurations (across K8s clusters) using a Service Account ?
+
 
 # Answered Questions
 
