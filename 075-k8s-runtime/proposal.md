@@ -12,6 +12,11 @@ We want to leverage Kubernetes as a runtime for container orchestration. The K8s
 - `observability` by leveraging logging & metrics solutions in the K8s ecosystem
  
 # Proposal
+## Storage
+The k8s runtime will continue to use baggageclaim to provide volumes to containers. This will be provided by creating a Baggageclaim CSI Driver . [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
+
+The current assumption would be that the registry is accessible by every K8s worker (including external workers).
+
 
 ## Worker Mapping
 A K8s Concourse worker would be represented by a K8s worker + K8s namespace. This was the mapping suggested in the [k8s POC](https://github.com/concourse/concourse/issues/5209), where a [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) in a [cluster](https://kubernetes.io/docs/concepts/architecture/) represented a single Concourse worker.
@@ -19,11 +24,6 @@ A K8s Concourse worker would be represented by a K8s worker + K8s namespace. Thi
 This leverages multi-tenant nature of Kubernetes and allows the Kubernetes cluster operator to manage and isolate Concourse workloads via the targeted namespace. It also allows an operator to configure capacity in a Concourse worker using [Resource Quotas](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/).
 
 With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
-
-## Storage
-Currently planning to use an image registry. [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
-
-The current assumption would be that the registry is accessible by every K8s worker (including external workers).
 
 ## Worker Lifecycle
 We want to continue using the Concourse API to register and heartbeat the Kubernetes worker. This gives us flexibility to extract the Kubernetes worker component in the future.
