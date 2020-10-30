@@ -13,36 +13,9 @@ We want to leverage Kubernetes as a runtime for container orchestration. The K8s
  
 # Proposal
 
-## Boundary Where We Introduce Kubernetes Logic
-Same as the [k8s POC](https://github.com/concourse/concourse/issues/5209), implement the Kubernetes worker behind the [`worker.client`](https://github.com/concourse/concourse/blob/master/atc/worker/client.go).
-
-### Other Options
-* Behind the Garden API, similar to `containerd`. [More details in our review of the k8s POC](https://github.com/concourse/concourse/issues/5986#issuecomment-675061559).
-
-## Step to Pod Mapping
-Execute each step as its own standalone pod. In Concourse a step is the smallest executable abstraction. A pod is the smallest executable abstraction in K8s.
-
-In this regard, step execution follows a similar pattern to Garden shown [here](https://github.com/concourse/concourse/issues/5209#issue-568335897).
-
-### Other Options
-* A job build could be mapped to a Pod. However, pods also don't provide any mechanisms for ordering of containers which would be required for steps. This step planning logic is also provided by the `exec` engine.
-* [SPIKE] Other K8s abstractions such as Jobs or other higher level abstractions such as Tekton TaskRuns could be explored
-
-## Coordinating Container Execution
-As a starting point, do something similar to the [k8s POC](https://github.com/concourse/concourse/issues/5209), use an `init` binary to keep the Pod from being deleted. ATC then monitors the state of the running Pods and executes actions on those Pods. The storage solution we end up going with will be a heavy driver of how we end up coordinating container execution with fetching and saving inputs/outputs.
-
-### Other Options
-* The ATC does not execute actions on the pod. Instead the Pod definition contains everything we want executed and Concourse observes the result.
-  * Is live log streaming possible?
-  * Is it possible to persist the Pod after the desired aciton completes so it can be intercepted later?
-* [Porter](https://github.com/concourse/porter) Sidecar that uses external S3 compatible blobstore - sidecar container that monitors the execution of containers and coordinates them in the right order. Could be modified to use an image registry instead of S3 though.
-
 ## Worker Mapping
 In the [k8s POC](https://github.com/concourse/concourse/issues/5209) a [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) in a [cluster](https://kubernetes.io/docs/concepts/architecture/) represent a single Concourse worker. This makes sense to us as it works with the multi-tenancy nature of Kubernetes and allows the Kubernetes cluster operator to manage and isolate Concourse workloads via the targeted namespace. With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
 
-### Other Options
-* Target an entire cluster. Still requires Concourse targetting namespace to make a pod but we take on the responsibility of choosing a namespace. Unclear why we'd want to do this.
-* Cluster + K8s Node. We'd be neglecting a lot of Kubernetes scheduling features with this option if we decide to tell Kubernetes which node to place workloads on.
 
 ## Storage
 Currently planning to use an image registry. [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
@@ -61,10 +34,6 @@ The **Worker Lifecycle component** would be responsible for the following;
   * **Volume GC**: Worker would be responsible for cleaning up local **cache objects** that are no longer required by the web. 
   * **Base Resources**: The Worker would advertise these base resources. This definition would include the list of base resources and their registry & repository metadata (eg. imagePullSecrets)
 
-## Image Registry Lifecycle
-The **image registry lifecycle component** would be responsible for;
-  * **Volume GC**: would be responsible for cleaning up global **cache objects** that are no longer required by the web. How this works will depend on our storage solution.
-
 ## Authenticating to the k8s worker
 Concourse would support both mechanisms for authenticating to the k8s cluster
 - kubeconfig
@@ -74,6 +43,16 @@ Concourse would support both mechanisms for authenticating to the k8s cluster
 The **Worker Lifecycle Component** should have its own identity (client id & secret) to communicate with the web API securely. 
 
 Ideally, each instance of the component should have its own unique identity. 
+
+## Boundary Where We Introduce Kubernetes Logic
+Same as the [k8s POC](https://github.com/concourse/concourse/issues/5209), implement the Kubernetes worker behind the [`worker.client`](https://github.com/concourse/concourse/blob/master/atc/worker/client.go).
+
+## Step to Pod Mapping
+Execute each step as its own standalone pod. In Concourse a step is the smallest executable abstraction. A pod is the smallest executable abstraction in K8s.
+
+## Coordinating Container Execution
+As a starting point, do something similar to the [k8s POC](https://github.com/concourse/concourse/issues/5209), use an `init` binary to keep the Pod from being deleted. ATC then monitors the state of the running Pods and executes actions on those Pods. The storage solution we end up going with will be a heavy driver of how we end up coordinating container execution with fetching and saving inputs/outputs.
+
 
 # Milestones
 ## Operator Use Cases
@@ -300,3 +279,25 @@ jobs:
 
 > What is the impact of this change, outside of the change itself? How might it
 > change peoples' workflows today, good or bad?
+
+
+# Appendix
+
+### Worker Mapping Alternatives
+* Target an entire cluster. Still requires Concourse targetting namespace to make a pod but we take on the responsibility of choosing a namespace. Unclear why we'd want to do this.
+* Cluster + K8s Node. We'd be neglecting a lot of Kubernetes scheduling features with this option if we decide to tell Kubernetes which node to place workloads on.
+
+### Boundary Where We Introduce Kubernetes Logic Alternatives
+* Behind the Garden API, similar to `containerd`. [More details in our review of the k8s POC](https://github.com/concourse/concourse/issues/5986#issuecomment-675061559).
+
+
+### Step to Pod Mapping Alternatives
+* A job build could be mapped to a Pod. However, pods don't provide any mechanisms for ordering of containers which would be required for steps. This step planning logic is already provided by the `exec` engine and would remain in Concourse in order to support other runtimes.
+* [SPIKE] Other K8s abstractions such as Jobs or other higher level abstractions such as Tekton TaskRuns could be explored
+
+### Coordinating Container Execution Alternatives
+* The ATC does not execute actions on the pod. Instead the Pod definition contains everything we want executed and Concourse observes the result.
+  * Is live log streaming possible?
+  * Is it possible to persist the Pod after the desired aciton completes so it can be intercepted later?
+* [Porter](https://github.com/concourse/porter) Sidecar that uses external S3 compatible blobstore - sidecar container that monitors the execution of containers and coordinates them in the right order. Could be modified to use an image registry instead of S3 though.
+
