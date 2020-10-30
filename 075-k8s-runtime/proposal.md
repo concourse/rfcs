@@ -4,8 +4,13 @@ An overview of how we plan to implement Kubernetes as a runtime for Concourse.
 
 # Motivation
 
-We want to leverage Kubernetes as a runtime for container orchestration to alleviate the scheduling problems Concourse runs into (TODO: link to issues/task queue PR?).
+We want to leverage Kubernetes as a runtime for container orchestration. The K8s runtime would be specifically leveraged for;
 
+- `stability` by offering more robust container placement 
+- `cost savings` by offering simpler mechanisms for scaling the system up/down to match demand
+- `security` by offering defined interfaces for auditing and policy management
+- `observability` by leveraging logging & metrics solutions in the K8s ecosystem
+ 
 # Proposal
 
 ## Boundary Where We Introduce Kubernetes Logic
