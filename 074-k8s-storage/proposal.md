@@ -31,6 +31,8 @@ Furthermore, the CSI is a useful interface for building the storage component ag
 
 ## Level Setting
 
+Before getting into the meat of the proposal let's first understand level set on our understanding of [baggageclaim]() and the [CSI spec]().
+
 ### What does Baggageclaim do?
 
 Baggageclaim comes as two components: a client and a server communicating over an HTTP REST API. The server component manages volumes within a specified directory on the host.
@@ -219,6 +221,7 @@ Still in `NodePublishVolume`, the volume will then be mounted at the path provid
   - What is the recommended way for a CSI controller to maintain state and know which volume is on which node(s)?
 - What is the recommended way to deploy the CSI driver? (e.g. StatefulSet, DaemonSet, etc.) _StatefulSet appears to fit our usecase best_
 - For volume streaming, should we go for the in-cluster P2P solution or stick with streaming through the Concourse web nodes?
+- Does the CSI driver need to be aware of each Concourse cluster that is using it? Another way of phrasing this question: can/should the CSI driver support multiple concourse installations? Do we need to do anything special to support this if we decide yes?
 
 
 # Answered Questions
