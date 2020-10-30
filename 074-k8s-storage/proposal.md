@@ -134,8 +134,9 @@ volume, err := ns.bagClient.CreateVolume(ns.logger, req.VolumeId, baggageclaim.V
     Properties: map[string]string{},
 })
 ```
+_This could also be done in `NodeStageVolume`_
 
-The volume will then be mounted at the path provided in the `NodePublisVolumeRequest`:
+Still in `NodePublishVolume`, the volume will then be mounted at the path provided in the `NodePublisVolumeRequest`:
 
 ```go
 mounter := mount.New("")
@@ -147,6 +148,8 @@ if err := mounter.Mount(path, targetPath, "", options); err != nil {
     return nil, err
 }
 ```
+
+The volume has been successfully provided to Kubernetes by this point.
 
 ### Creating A Cloned Volume
 
@@ -184,6 +187,24 @@ if req.GetVolumeContentSource() != nil {
 }
 ```
 
+`Controller.PublishVolume` will get called. This will be a no-op.
+
+`NodeStageVolume` will get called. This will be a no-op.
+
+`NodePublishVolume` will get called. Baggageclaim will create a volume based on the `COWStrategy`, fetching the parent volume from `VolumeContext`.
+
+```go
+id, _ := volumeContext["sourceVolumeID"]
+sourceVolume, _, _ := ns.bagClient.LookupVolume(ns.logger, id)
+
+volume, err := ns.bagClient.CreateVolume(ns.logger, req.VolumeId, baggageclaim.VolumeSpec{
+    Strategy:   baggageclaim.COWStrategy{Parent: sourceVolume},
+    Properties: map[string]string{},
+})
+```
+_This could also be done in `NodeStageVolume`_
+
+Still in `NodePublishVolume`, the volume will then be mounted at the path provided in the `NodePublisVolumeRequest`. The volume, populated with data from the parent PVC, has been successfully provided to Kubernetes by this point.
 
 ### Streaming Volumes Inside A Kubernetes Cluster
 
