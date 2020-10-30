@@ -26,15 +26,15 @@ This leverages multi-tenant nature of Kubernetes and allows the Kubernetes clust
 With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
 
 ## Worker Lifecycle
-We want to continue using the Concourse API to register and heartbeat the Kubernetes worker. This gives us flexibility to extract the Kubernetes worker component in the future.
+The K8s runtime will continue using the Concourse API to register and heartbeat the Kubernetes worker. This provides the flexibility to extract the Kubernetes worker component in the future.
 
 The **Worker Lifecycle component** would be responsible for the following;
-  * **Registration**: ATC reaches out to Kubernetes cluster. Registers as a worker if it can successfully communicate with the Kubernetes API. Will communicate through the Concourse API.
-  * **Heartbeating/Running/Stalled**: Planning to have some component/thread on the ATC that checks that the Kubernetes API is still reachable. If it's no longer reachable then the heartbeat fails and the Kubernetes worker stalls. Will communicate through the Concourse API.
+  * **Registration**: The component reaches out to Kubernetes cluster. Registers with the ATC directly as a worker if it can successfully communicate with the Kubernetes API. This is a change as existing Garden/Containerd workers communicate with the ATC via the TSA. 
+  * **Heartbeating/Running/Stalled**: The component will periodically ensure that the Kubernetes API is still reachable and heartbeat on behalf the K8s worker to the ATC. If it's no longer reachable then the heartbeat fails and the Kubernetes worker will be stalled by the ATC. 
   * **Land(ing/ed)**: Stop scheduling workloads on the worker.
   * **Retir(ing/ed)**: Stop scheduling workloads on the worker.
-  * **Container GC**: Worker would be responsible for cleaning up step pods that are no longer required by the web
-  * **Volume GC**: Worker would be responsible for cleaning up local **cache objects** that are no longer required by the web. 
+  * **Container GC**: The component would be responsible for cleaning up step pods that are no longer required by the web
+  * **Volume GC**: The component would be responsible for cleaning up local **cache objects** that are no longer required by the web.
   * **Base Resources**: The Worker would advertise these base resources. This definition would include the list of base resources and their registry & repository metadata (eg. imagePullSecrets)
 
 ## Authenticating to the k8s worker
