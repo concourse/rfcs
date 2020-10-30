@@ -21,7 +21,7 @@ The current assumption would be that the registry is accessible by every K8s wor
 ## Worker Mapping
 A K8s Concourse worker would be represented by a K8s worker + K8s namespace. This was the mapping suggested in the [k8s POC](https://github.com/concourse/concourse/issues/5209), where a [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) in a [cluster](https://kubernetes.io/docs/concepts/architecture/) represented a single Concourse worker.
 
-This leverages multi-tenant nature of Kubernetes and allows the Kubernetes cluster operator to manage and isolate Concourse workloads via the targeted namespace. It also allows an operator to configure capacity in a Concourse worker using [Resource Quotas](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/).
+This leverages multi-tenant nature of Kubernetes and allows the Kubernetes cluster operator to manage and isolate Concourse workloads via the targeted namespace. It also allows an operator to configure capacity for a Concourse worker using [Resource Quotas](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/).
 
 With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
 
