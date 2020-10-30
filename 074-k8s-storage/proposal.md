@@ -219,10 +219,11 @@ Still in `NodePublishVolume`, the volume will then be mounted at the path provid
 - What does the Concourse database model for volumes look like with a k8s worker running a baggageclaim CSI driver?
 - How will the CSI driver stream a volume between k8s nodes?
   - What is the recommended way for a CSI controller to maintain state and know which volume is on which node(s)?
-  - How will we stream single files in a volume? (i.e. when Concourse needs to read a task config from the artifact of a get step)
+  - How will we stream single files in a volume? (i.e. when Concourse needs to read a task config from the artifact of a get step) (maybe this is an open question for the runtime RFC)
 - What is the recommended way to deploy the CSI driver? (e.g. StatefulSet, DaemonSet, etc.) _StatefulSet appears to fit our usecase best_
 - For volume streaming, should we go for the in-cluster P2P solution or stick with streaming through the Concourse web nodes?
 - Does the CSI driver need to be aware of each Concourse cluster that is using it? Another way of phrasing this question: can/should the CSI driver support multiple concourse installations? Do we need to do anything special to support this if we decide yes?
+- Do we need to modify baggageclaim for any reason?
 
 
 # Answered Questions
