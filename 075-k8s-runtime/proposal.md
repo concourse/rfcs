@@ -10,14 +10,12 @@ We want to leverage Kubernetes as a runtime for container orchestration. The K8s
 - `cost savings` by offering simpler mechanisms for scaling the system up/down to match demand
 - `security` by offering defined interfaces for auditing and policy management
 - `observability` by leveraging logging & metrics solutions in the K8s ecosystem
+
+# Terms
+* **K8s Worker Client** The K8s implementation of the [worker.Client](https://github.com/concourse/concourse/blob/master/atc/worker/client.go#L31)
+* **Worker Lifecycle Component** Is responsible for registering, heartbeating, volume and container garbage collection
  
 # Proposal
-## Storage
-The k8s runtime will continue to use baggageclaim to provide volumes to containers. This will be provided by creating a Baggageclaim CSI Driver . [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
-
-The current assumption would be that the registry is accessible by every K8s worker (including external workers).
-
-
 ## Worker Mapping
 A K8s Concourse worker would be represented by a K8s worker + K8s namespace. This was the mapping suggested in the [k8s POC](https://github.com/concourse/concourse/issues/5209), where a [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) in a [cluster](https://kubernetes.io/docs/concepts/architecture/) represented a single Concourse worker.
 
@@ -25,10 +23,39 @@ This leverages multi-tenant nature of Kubernetes and allows the Kubernetes clust
 
 With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
 
+## Authenticating to the k8s worker
+Concourse would support both mechanisms for authenticating to the k8s cluster
+
+* kubeconfig
+* service account
+
+The `kubeconfig` option provides a mechanism for providing access to workers across clusters and for running web locally targetting a k8s cluster.
+The `service account` option would be useful for in-cluster.
+deployments of web targetting the cluster it was deployed on.
+
+## Boundary Where We Introduce Kubernetes Logic
+Same as the [k8s POC](https://github.com/concourse/concourse/issues/5209), implement the Kubernetes worker behind the [`worker.client`](https://github.com/concourse/concourse/blob/master/atc/worker/client.go).
+
+### Storage
+The k8s runtime will continue to use baggageclaim to provide volumes to containers. This will be provided by creating a Baggageclaim CSI Driver . [See RFC 74 for more details](https://github.com/concourse/rfcs/pull/77) and other options considered.
+
+The current assumption would be that the registry is accessible by every K8s worker (including external workers).
+
+### Executing Steps
+Execute each step as its own standalone pod. In Concourse a step is the smallest executable abstraction. A pod is the smallest executable abstraction in K8s.
+
+As a starting point, do something similar to the [k8s POC](https://github.com/concourse/concourse/issues/5209), use an `init` binary to keep the Pod from being deleted. The K8s worker client then monitors the state of the running Pods and executes actions on those Pods.
+
+The K8s worker client will also use the K8s APIs to manage creation and cloning of volumes.
+
+### Building and Using images
+TODO
+
 ## Worker Lifecycle
 The K8s runtime will continue using the Concourse API to register and heartbeat the Kubernetes worker. This provides the flexibility to extract the Kubernetes worker component in the future.
 
 The **Worker Lifecycle component** would be responsible for the following;
+
   * **Registration**: The component reaches out to Kubernetes cluster. Registers with the ATC directly as a worker if it can successfully communicate with the Kubernetes API. This is a change as existing Garden/Containerd workers communicate with the ATC via the TSA. 
   * **Heartbeating/Running/Stalled**: The component will periodically ensure that the Kubernetes API is still reachable and heartbeat on behalf the K8s worker to the ATC. If it's no longer reachable then the heartbeat fails and the Kubernetes worker will be stalled by the ATC. 
   * **Land(ing/ed)**: Stop scheduling workloads on the worker.
@@ -37,43 +64,27 @@ The **Worker Lifecycle component** would be responsible for the following;
   * **Volume GC**: The component would be responsible for cleaning up local **cache objects** that are no longer required by the web.
   * **Base Resources**: The Worker would advertise these base resources. This definition would include the list of base resources and their registry & repository metadata (eg. imagePullSecrets)
 
-## Authenticating to the k8s worker
-Concourse would support both mechanisms for authenticating to the k8s cluster
-- kubeconfig
-- service account
-
-## Authenticating to the web API
+## Authenticating to the ATC API
 The **Worker Lifecycle Component** should have its own identity (client id & secret) to communicate with the web API securely. 
 
-Ideally, each instance of the component should have its own unique identity. 
-
-## Boundary Where We Introduce Kubernetes Logic
-Same as the [k8s POC](https://github.com/concourse/concourse/issues/5209), implement the Kubernetes worker behind the [`worker.client`](https://github.com/concourse/concourse/blob/master/atc/worker/client.go).
-
-## Step to Pod Mapping
-Execute each step as its own standalone pod. In Concourse a step is the smallest executable abstraction. A pod is the smallest executable abstraction in K8s.
-
-## Coordinating Container Execution
-As a starting point, do something similar to the [k8s POC](https://github.com/concourse/concourse/issues/5209), use an `init` binary to keep the Pod from being deleted. ATC then monitors the state of the running Pods and executes actions on those Pods. The storage solution we end up going with will be a heavy driver of how we end up coordinating container execution with fetching and saving inputs/outputs.
-
+Ideally, each instance of the component should have its own unique identity.
 
 # Milestones
 ## Operator Use Cases
-1. 1 K8s worker & Concourse web external (Simpler for local development)
+1. A K8s worker & external Concourse web (Simpler for local development)
   + register worker
   + heartbeat
 1. Fly workers
 1. Fly containers
 1. Fly volumes
 1. Pod GC'ing - only delete pods we know about. Ignore other pods.
-1. 1 K8s worker & Concourse web in-cluster
-1. Image Registry GC'ing
+1. Volume GC'ing
+1. A K8s worker & in-cluster Concourse web 
 1. Worker retiring/landing
   + fly land-worker
   + fly prune-worker
 1. Tracing
 1. Metrics (Placeholder)
-1. Default K8s container placement strategy
 1. External K8s worker that is not reachable by the web
 
 ## Developer Use Cases
@@ -257,18 +268,22 @@ jobs:
 
 # Open Questions
 
+## Worker Lifecycle
+
 * How should [worker `tags`](https://concourse-ci.org/concourse-worker.html#worker-configuration) be used? Should we pass the tag down to Kubernetes as the node name or not pass it down at all?
   * Option 1: We should not pass the tag down to Kubernetes. Tags are used in Concourse to select a set of workers and if we are treating Kubernetes as a worker then it should not operate on the tag(s) like workers currently behave.
   * Option 2: The purpose of tags is to control where steps are or aren't executed. K8s provides a few ways of achieving this, such as `nodeSelector` or more flexibile [Affinity & Anti-Affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
-* Worker lifecycle: With volumes being stored in an image registry volumes are no longer associated with a specific worker. Should we change what it means to "Retire" a worker? This will be driven out by how we develop the storage solution.
-* Worker lifecycle: Should/could this component be run as a standalone component ?
-  * The benefit of doing so would allow it to be managed separately from Concourse web. Scaling the web nodes is independent to scaling the worker lifecycle component. 
+* Should/could this component be run as a standalone component ?
+	* The benefit of doing so would allow it to be managed separately from Concourse web. Scaling the web nodes is independent to scaling the worker lifecycle component. 
+ 
 * Today the TSA component provides two services: 1) securing communication to and from the worker and 2) allowing a public web instance to talk to a woker inside a private network. With a Kubernetes worker communication is already secure. Is there some third-party tool we can leverage to achieve the second service that TSA currently provides us?
-* Container Execution: Where do we store task step status similar to updating garden container properties to store exit status ?
-* Authenticating to the k8s worker
-	* How do we support different auth providers ?
-	* How do we support multiple worker configurations (across K8s clusters) using a Service Account ?
 
+
+* Container Execution: Where do we store task step status similar to updating garden container properties to store exit status ?
+
+## Authenticating to the k8s worker 
+* How do we support different auth providers ?
+* How do we support multiple worker configurations (across K8s clusters) using a Service Account ?
 
 # Answered Questions
 
