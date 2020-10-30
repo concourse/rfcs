@@ -89,7 +89,7 @@ A user creates a PVC:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: empty-pvc
+  name: volume-guid # The volume ID that Concourse Web keeps track of
 spec:
   accessModes:
     - ReadWriteOnce # the only accessMode we will support
@@ -99,16 +99,127 @@ spec:
       storage: 1Gi # can be any value, we ignore this
   storageClassName: baggageclaim
 ```
-The [`external-provisioner`](https://github.com/kubernetes-csi/external-provisioner) will call `Controller.CreateVolume`. In this case `CreateVolume` will:
 
+The [`external-provisioner`](https://github.com/kubernetes-csi/external-provisioner) will call `Controller.CreateVolume`. In this case `CreateVolume` will generate an ID for tracking the volume.
+
+With the PVC "created" (from the perspective of Kubernetes), a user can now reference the PVC in a Pod.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: output
+spec:
+  containers:
+  - name: output
+    ...
+    volumeMounts:
+      - name: artifact-name
+        mountPath: /tmp/artifact-name
+  volumes:
+    - name: artifact-name
+      persistentVolumeClaim:
+        claimName: volume-id
+```
+
+`Controller.PublishVolume` will get called. This will be a no-op.
+
+`NodeStageVolume` will get called. This will be a no-op.
+
+`NodePublishVolume` will get called. Baggageclaim will create a volume based on the `EmptyStrategy`.
+
+```go
+volume, err := ns.bagClient.CreateVolume(ns.logger, req.VolumeId, baggageclaim.VolumeSpec{
+    Strategy:   baggageclaim.EmptyStrategy{},
+    Properties: map[string]string{},
+})
+```
+
+The volume will then be mounted at the path provided in the `NodePublisVolumeRequest`:
+
+```go
+mounter := mount.New("")
+path := volume.Path()
+targetPath := req.GetTargetPath()
+options := []string{"bind"}
+glog.V(4).Infof("concourse: mounting baggageclaim volume at %s", path)
+if err := mounter.Mount(path, targetPath, "", options); err != nil {
+    return nil, err
+}
+```
 
 ### Creating A Cloned Volume
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volume-guid
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: baggageclaim
+  dataSource: # will only support cloning other baggageclaim volumes
+    name: some-other-pvc
+    kind: PersistentVolumeClaim
+```
+
+The [`external-provisioner`](https://github.com/kubernetes-csi/external-provisioner) will call `Controller.CreateVolume`. In this case `CreateVolume` will see that a `VolumeContentSource` has been provided and will pass along the source volume's ID to later requests using the `Volume.volume_context` field.
+
+```go
+if req.GetVolumeContentSource() != nil {
+    volumeSource := req.VolumeContentSource
+    switch volumeSource.Type.(type) {
+    case *csi.VolumeContentSource_Volume:
+        if srcVolume := volumeSource.GetVolume(); srcVolume != nil {
+            volumeContext["sourceVolumeID"] = srcVolume.GetVolumeId()
+        }
+    default:
+        status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
+    }
+}
+```
+
 
 ### Streaming Volumes Inside A Kubernetes Cluster
 
 ### Streaming Volumes To An External Baggageclaim
 
-# Alternative Storage Options considered
+# Open Questions
+
+- When we need to have a volume available on multiple k8s nodes, how do we do this in a baggageclaim CSI driver?
+  - Would it make sense to support `ReadWriteMany` as the volume's `accessMode` instead of `ReadWriteOnce`?
+- What does the Concourse database model for volumes look like with a k8s worker running a baggageclaim CSI driver?
+- How will the CSI driver stream a volume between k8s nodes?
+  - What is the recommended way for a CSI controller to maintain state and know which volume is on which node(s)?
+- What is the recommended way to deploy the CSI driver? (e.g. StatefulSet, DaemonSet, etc.) _StatefulSet appears to fit our usecase best_
+- For volume streaming, should we go for the in-cluster P2P solution or stick with streaming through the Concourse web nodes?
+
+
+# Answered Questions
+
+- Should we implement this as a CSI driver? **Yes we do after doing the CSI Driver POC Spike**
+- Do we implement our own version of the csi-image-populator? **Yes but based on baggageclaim instead of image layers**
+
+# Related Links
+- [Storage Spike](https://github.com/concourse/concourse/issues/6036)
+- [Review k8s worker POC](https://github.com/concourse/concourse/issues/5986)
+- [CSI Driver POC Spike](https://github.com/concourse/concourse/issues/6133)
+
+
+# New Implications
+
+Will drive the rest of the Kubernetes runtime work.
+
+---
+
+# Appendix - Alternative Storage Options considered
+
+The follow are some of the other storage on Kubernetes options that we considered.
 
 ## Baggageclaim + CSI Implementation
 ### Description
@@ -232,28 +343,3 @@ The CSI spec can be used to wrap every solution listed above. It provides an API
 ## Fuse
 This might simplify our usage of external storage solutions such as blobstores. There isn't a supported solution in K8s at the moment. However, this would be something worth considering if that were to change. [Click here to view the current issue requesting K8s development](https://github.com/kubernetes/kubernetes/issues/7890).
 
-# Open Questions
-
-- When we need to have a volume available on multiple k8s nodes, how do we do this in a baggageclaim CSI driver?
-  - Would it make sense to support `ReadWriteMany` as the volume's `accessMode` instead of `ReadWriteOnce`?
-- What does the Concourse database model for volumes look like with a k8s worker running a baggageclaim CSI driver?
-- How will the CSI driver stream a volume between k8s nodes?
-  - What is the recommended way for a CSI controller to maintain state and know which volume is on which node(s)?
-- What is the recommended way to deploy the CSI driver? (e.g. StatefulSet, DaemonSet, etc.) _StatefulSet appears to fit our usecase best_
-- For volume streaming, should we go for the in-cluster P2P solution or stick with streaming through the Concourse web nodes?
-
-
-# Answered Questions
-
-- Should we implement this as a CSI driver? **Yes we do after doing the CSI Driver POC Spike**
-- Do we implement our own version of the csi-image-populator? **Yes but based on baggageclaim instead of image layers**
-
-# Related Links
-- [Storage Spike](https://github.com/concourse/concourse/issues/6036)
-- [Review k8s worker POC](https://github.com/concourse/concourse/issues/5986)
-- [CSI Driver POC Spike](https://github.com/concourse/concourse/issues/6133)
-
-
-# New Implications
-
-Will drive the rest of the Kubernetes runtime work.
