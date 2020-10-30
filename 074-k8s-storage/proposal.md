@@ -78,15 +78,15 @@ Targeting Kubernetes Version 1.19
 
 Follow the recommended deployment strategy from the Kubernetes team [described in this design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md#recommended-mechanism-for-deploying-csi-drivers-on-kubernetes) with the following differences:
 - no `external-resizer` container. Not planning to support resizing.
-- no `external-snapshotter` container. We will use the `CLONE_VOLUME` feature to create COW volumes in baggageclaim instead of trying to use snapshots.
+- no `external-snapshotter` container. The baggageclaim CSI driver will use the `CLONE_VOLUME` feature to create COW volumes in baggageclaim instead of trying to use snapshots.
 - An extra volume must be mounted for each replica Pod in the DaemonSet. This volume, which should be very large, will be used by baggageclaim to store the volumes that it creates on each Kubernetes node.
-- We plan to **not guarantee** the requested storage capicity because we have no idea how much space any given step in Concourse will use. Kubernetes will force us to specify a storage request but our CSI driver will ignore this value. This goes against the CSI spec.
+- The baggageclaim CSI drver will **not guarantee** the requested storage capicity because Concourse has no idea how much space any given step in will use, therefore Concourse continues to expect the CSI driver to follow this assumption. Kubernetes will force us to specify a storage request but the baggageclaim CSI driver will ignore this value. This goes against the CSI spec.
 
 Let's go over some use cases to get an understanding about how the implementation may work.
 
 ### Creating An Empty Volume
 
-A user creates a PVC:
+Concourse creates a PVC:
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -104,7 +104,7 @@ spec:
 
 The [`external-provisioner`](https://github.com/kubernetes-csi/external-provisioner) will call `Controller.CreateVolume`. In this case `CreateVolume` will generate an ID for tracking the volume.
 
-With the PVC "created" (from the perspective of Kubernetes), a user can now reference the PVC in a Pod.
+With the PVC "created" (from the perspective of Kubernetes), Concourse can now reference the PVC in a Pod.
 
 ```yaml
 apiVersion: v1
@@ -155,6 +155,7 @@ The volume has been successfully provided to Kubernetes by this point.
 
 ### Creating A Cloned Volume
 
+Concourse creates a PVC that references another PVC in the `spec.dataSource` field:
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -168,7 +169,7 @@ spec:
     requests:
       storage: 1Gi
   storageClassName: baggageclaim
-  dataSource: # will only support cloning other baggageclaim volumes
+  dataSource:
     name: some-other-pvc
     kind: PersistentVolumeClaim
 ```
@@ -210,18 +211,23 @@ Still in `NodePublishVolume`, the volume will then be mounted at the path provid
 
 ### Streaming Volumes Inside A Kubernetes Cluster
 
-### Streaming Volumes To An External Baggageclaim
+### Streaming Volumes To And From An External Baggageclaim
+Concourse needs to be able to stream volumes between workers. Our entire storage solution needs to take this into consideration. This use-case could be tackled by the CSI driver itself or by an external component such as Concourse web nodes.
+
+Here are two potential paths Concourse could take to address this use-case. More ideas are welcomed!
+1. Use the Kubernetes API. Streaming is facilitated by Concourse Web nodes.
+  - Use the same packages/functions that are used by `kubectl cp` to stream volume contents out (entire volume or single files)
+  - Populate a volume with content from another worker somehow, maybe via a pod acting like a get step
+2. Expose Baggageclaim's streaming endpoints for Concourse web to reach similar to how Concourse currently connects to Baggageclaim on workers. Still facilitated by Concourse Web Nodes but have the CSI driver play a more direct role in the streaming of bits.
 
 # Open Questions
 
-- When we need to have a volume available on multiple k8s nodes, how do we do this in a baggageclaim CSI driver?
+- When the CSI driver needs to have a volume available on multiple k8s nodes, how does the CSI driver accomplish this?
   - Would it make sense to support `ReadWriteMany` as the volume's `accessMode` instead of `ReadWriteOnce`?
 - What does the Concourse database model for volumes look like with a k8s worker running a baggageclaim CSI driver?
 - How will the CSI driver stream a volume between k8s nodes?
   - What is the recommended way for a CSI controller to maintain state and know which volume is on which node(s)?
-  - How will we stream single files in a volume? (i.e. when Concourse needs to read a task config from the artifact of a get step) (maybe this is an open question for the runtime RFC)
-- What is the recommended way to deploy the CSI driver? (e.g. StatefulSet, DaemonSet, etc.) _StatefulSet appears to fit our usecase best_
-- For volume streaming, should we go for the in-cluster P2P solution or stick with streaming through the Concourse web nodes?
+  - How will Concourse stream single files in a volume? (i.e. when Concourse needs to read a task config from the artifact of a get step)
 - Does the CSI driver need to be aware of each Concourse cluster that is using it? Another way of phrasing this question: can/should the CSI driver support multiple concourse installations? Do we need to do anything special to support this if we decide yes?
 - Do we need to modify baggageclaim for any reason?
 
@@ -230,6 +236,8 @@ Still in `NodePublishVolume`, the volume will then be mounted at the path provid
 
 - Should we implement this as a CSI driver? **Yes we do after doing the CSI Driver POC Spike**
 - Do we implement our own version of the csi-image-populator? **Yes but based on baggageclaim instead of image layers**
+- What is the recommended way to deploy the CSI driver? (e.g. StatefulSet, DaemonSet, etc.) **StatefulSet appears to fit our usecase best**
+- For volume streaming, should we go for the in-cluster P2P solution or stick with streaming through the Concourse web nodes? **We will do in-cluster P2P between Kubernetes nodes and stick with going through the Concourse web nodes for streaming to external workers as our first pass**
 
 # Related Links
 - [Storage Spike](https://github.com/concourse/concourse/issues/6036)
