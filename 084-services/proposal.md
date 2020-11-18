@@ -4,7 +4,7 @@ Provide a native way to expose local services to steps.
 
 # Motivation
 
-* Easier integration testing ([concourse/concourse#324])
+* Easier integration testing ([concourse/concourse#324](https://github.com/concourse/concourse/issues/324))
   * The current recommended way is to run a privileged `task` with a Docker daemon + `docker-compose` installed, and that task runs `docker-compose up` and the test suite
 
 # Proposal
@@ -139,7 +139,6 @@ When we build a [Kubernetes Runtime], exposing services will be much easier - we
 
 
 
-[concourse/concourse#324]: (https://github.com/concourse/concourse/issues/324)
 [Prototype]: https://github.com/concourse/rfcs/blob/master/037-prototypes/proposal.md
 [Kubernetes Runtime]: https://github.com/concourse/rfcs/blob/075-k8s-runtime/075-k8s-runtime/proposal.md
 [Garden `NetIn` spec]: https://github.com/cloudfoundry/garden/blob/b404ff2d61e689c6510593cf75d39dc5311be663/container.go#L56-L71
