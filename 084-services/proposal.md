@@ -89,21 +89,19 @@ ports:
 
 ### Startup Probe
 
-In order to ensure a service is ready to accept traffic before running any dependent steps, the `startup_probe` must first succeed.
+To ensure a service is ready to accept traffic before running the dependent step, the `startup_probe` must first succeed.
 
-If unspecified, Concourse will wait for each of the specified ports to be open (with some timeout).
+`startup_probe.run` defines a process to run on the service container until it succeeds. The process will run every `startup_probe.period_seconds`, and if it fails `startup_probe.failure_threshold` times, the service will error and the dependent step will not run.
 
-A custom `startup_probe` can be defined that periodically runs a process on the service container until it succeeds (with some timeout).
+If `startup_probe.run` is left unspecified, Concourse will wait for each of the specified ports to be open.
 
 ## Worker Placement
 
 Since `services` are just bound to `task`s, the easiest approach would be to assign the service container and the task container to the same worker. This allows us to avoid a more complex architecture having to route traffic through the TSA (since workers may not be directly reachable from one another).
 
-This isn't *too* restrictive, as anyone running e.g. `docker-compose` on a container currently for integration testing is effectively doing the same thing. It's also worth noting that with a native [Kubernetes Runtime], a single "worker" will likely correspond with an entire cluster, rather than a single node in the cluster.
+This hopefully isn't *too* restrictive, as anyone running e.g. `docker-compose` in a `task` for integration testing is effectively doing the same thing (just in one mega-container instead of 2+). It's also worth noting that with a native [Kubernetes Runtime], a single "worker" will likely correspond with an entire cluster, rather than a single node in the cluster.
 
 However, it does mean that we can't provide services to tasks running on Windows/Darwin workers - not sure if there's much need for this, though.
-
-(psst - if you're curious about an alternative approach that allows providing services to multiple steps, and hence requires inter-worker communication, check out this [early draft] of the RFC - with a hand-wavy architecture diagram and all!)
 
 ## Networking
 
@@ -116,19 +114,20 @@ Here, we have a couple options.
 1. Make use of the [Garden `NetIn` spec] to map a container port to a host port
 2. Set up custom firewall rules to route traffic to containers
 
-I'm in favour of option 2., since it doesn't require exposing ports on the worker itself. It also lets us to restrict network access to the service, meaning that only the `task` container can communicate with the `service` container.
+I'm in favour of option 2., since it doesn't require exposing ports on the worker itself. It also lets us restrict network access to the service, meaning that only the `task` container can communicate with the `service` container.
 
-We could add a Service Manager component to workers that the ATC will communicate with to register/unregister services indicating the `service` container, the exposed ports, and the `task` container that can access the `service`. In response, the Service Manager would create/destroy firewall rules.
+We could add a Service Manager component to each worker that the ATC will communicate with to register/unregister services. Register requests will indicate the `service` container, the exposed ports, and the `task` container that can access the `service`, while unregister requests just need to indicate the `service` container. In response, the Service Manager would create/destroy firewall rules.
 
 ![Service Manager overview](./service-manager.png)
 
 ### Kubernetes
 
-When we build a [Kubernetes Runtime], exposing services will be much easier - we just need to make a Kubernetes `Service` exposing the service pod (of type `ClusterIP`), and `((.svc:my-service.address))` would resolve to the CoreDNS service address.
+When we build a [Kubernetes Runtime], exposing services will be much easier - we just need to create a Kubernetes `Service` (of type `ClusterIP`) exposing the service pod and appropriate ports, and `((.svc:my-service.address))` would resolve to the CoreDNS service address.
 
 # Open Questions
 
 * Are there (sufficiently many) practical use-cases for exposing a service to multiple steps? Or is a single `task` always sufficient?
+    * psst - if you're curious about an alternative approach that allows providing services to multiple steps, and hence requires inter-worker communication, check out this [early draft] of the RFC - with a hand-wavy architecture diagram and all!
 * Are there (sufficiently many) practical use-cases for exposing a service to `tasks` on Windows/Darwin workers?
 
 # Answered Questions
