@@ -76,7 +76,7 @@ Services can also run by sending a message to a [Prototype], similar to the `run
 ```yaml
 name: concourse
 type: docker-compose
-run: up
+run: up # up is the default message for prototype-based services
 params:
   files:
   - concourse/docker-compose.yml
