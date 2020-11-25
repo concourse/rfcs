@@ -109,26 +109,36 @@ The way we accomplish intra-worker container-to-container networking depends on 
 
 ### Guardian and containerd
 
-Here, we have a couple options.
+There are a couple of options here:
 
-1. Make use of the [Garden `NetIn` spec] to map a container port to a host port
-2. Set up custom firewall rules to route traffic to containers
+1. Containers on the same host can communicate via the bridge network (created by a CNI plugin in our [containerd backend], not sure about Guardian...)
+    * Could work with minimal changes to the runtime layer
+    * Need extra architecture to prevent a malicious `task` from scanning the container subnet to interfere with running services (note: it's currently possible for this to happen with any `task` that runs a server, e.g. running `docker-compose` in a `task`, but is easy to prevent with some changes to firewall rules)
+2. With our containerd runtime, we have more flexibility, and have the option of running both processes in the same network namespace
+    * This would allow communication over `localhost`
+    * We'll need to wait until our containerd runtime is stable so we can replace it with Guardian
+    * If a `task` has multiple services, two services cannot use the same ports (even if they are not exposed)
 
-I'm in favour of option 2., since it doesn't require exposing ports on the worker itself. It also lets us restrict network access to the service, meaning that only the `task` container can communicate with the `service` container.
-
-We could add a Service Manager component to each worker that the ATC will communicate with to register/unregister services. Register requests will indicate the `service` container, the exposed ports, and the `task` container that can access the `service`, while unregister requests just need to indicate the `service` container. In response, the Service Manager would create/destroy firewall rules.
+With respect to the second point under option 1, we *can* prevent such `tasks` if this is a concern by adding a Service Manager component to each worker to register/unregister services. This component could create/destroy firewall rules granting specific containers access to others.
 
 ![Service Manager overview](./service-manager.png)
 
 ### Kubernetes
 
-When we build a [Kubernetes Runtime], exposing services will be much easier - we just need to create a Kubernetes `Service` (of type `ClusterIP`) exposing the service pod and appropriate ports, and `((.svc:my-service.address))` would resolve to the CoreDNS service address.
+When we build a [Kubernetes Runtime], we have a couple alternatives here as well that roughly mirror the choices for containerd:
+
+1. Run the service as its own pod
+    * Possible for service and `task` to run on different k8s nodes
+    * I don't know enough about k8s to know whether it's possible to add firewall rules so that only the `task` pod can access the service pod
+2. Run services as sidecar containers in the same pod as the `task`
+    * Service and `task` must run on the same k8s node
+    * If a `task` has multiple services, two services cannot use the same ports (even if they are not exposed)
 
 # Open Questions
 
 * Are there (sufficiently many) practical use-cases for exposing a service to multiple steps? Or is a single `task` always sufficient?
-    * psst - if you're curious about an alternative approach that allows providing services to multiple steps, and hence requires inter-worker communication, check out this [early draft] of the RFC - with a hand-wavy architecture diagram and all!
-* Are there (sufficiently many) practical use-cases for exposing a service to `tasks` on Windows/Darwin workers?
+* Are there (sufficiently many) practical use-cases for exposing a service to a `task` on a Windows/Darwin worker?
+* Would you ever need to run multiple services that both use the same port?
 
 # Answered Questions
 
@@ -140,5 +150,4 @@ When we build a [Kubernetes Runtime], exposing services will be much easier - we
 
 [Prototype]: https://github.com/concourse/rfcs/blob/master/037-prototypes/proposal.md
 [Kubernetes Runtime]: https://github.com/concourse/rfcs/blob/075-k8s-runtime/075-k8s-runtime/proposal.md
-[Garden `NetIn` spec]: https://github.com/cloudfoundry/garden/blob/b404ff2d61e689c6510593cf75d39dc5311be663/container.go#L56-L71
-[early draft]: https://github.com/aoldershaw/rfcs/blob/dc4d0082cb0441a234a775d1620ea5ed9a52a6b6/083-services/proposal.md
+[containerd backend]: https://github.com/concourse/concourse/blob/27e1d83fd3d24d22a1a8d9c83823d608fae63f4a/worker/runtime/cni_network.go#L66-L80
