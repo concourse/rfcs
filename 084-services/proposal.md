@@ -116,7 +116,7 @@ There are a couple of options here:
     * Need extra architecture to prevent a malicious `task` from scanning the container subnet to interfere with running services (note: it's currently possible for this to happen with any `task` that runs a server, e.g. running `docker-compose` in a `task`, but is easy to prevent with some changes to firewall rules)
 2. With our containerd runtime, we have more flexibility, and have the option of running both processes in the same network namespace
     * This would allow communication over `localhost`
-    * We'll need to wait until our containerd runtime is stable so we can replace it with Guardian
+    * We'll need to wait until our containerd runtime is stable so we can replace Guardian with it
     * If a `task` has multiple services, two services cannot use the same ports (even if they are not exposed)
 
 With respect to the second point under option 1, we *can* prevent such `tasks` if this is a concern by adding a Service Manager component to each worker to register/unregister services. This component could create/destroy firewall rules granting specific containers access to others.
