@@ -129,7 +129,7 @@ When we build a [Kubernetes Runtime], we have a couple alternatives here as well
 
 1. Run the service as its own pod
     * Possible for service and `task` to run on different k8s nodes
-    * I don't know enough about k8s to know whether it's possible to add firewall rules so that only the `task` pod can access the service pod
+    * Can configure [network policies] to restrict access to the `service` pod
 2. Run services as sidecar containers in the same pod as the `task`
     * Service and `task` must run on the same k8s node
     * If a `task` has multiple services, two services cannot use the same ports (even if they are not exposed)
@@ -139,6 +139,7 @@ When we build a [Kubernetes Runtime], we have a couple alternatives here as well
 * Are there (sufficiently many) practical use-cases for exposing a service to multiple steps? Or is a single `task` always sufficient?
 * Are there (sufficiently many) practical use-cases for exposing a service to a `task` on a Windows/Darwin worker?
 * Would you ever need to run multiple services that both use the same port?
+* How important is it to access the service over `localhost` vs some arbitrary hostname or IP address?
 
 # Answered Questions
 
@@ -151,3 +152,4 @@ When we build a [Kubernetes Runtime], we have a couple alternatives here as well
 [Prototype]: https://github.com/concourse/rfcs/blob/master/037-prototypes/proposal.md
 [Kubernetes Runtime]: https://github.com/concourse/rfcs/blob/075-k8s-runtime/075-k8s-runtime/proposal.md
 [containerd backend]: https://github.com/concourse/concourse/blob/27e1d83fd3d24d22a1a8d9c83823d608fae63f4a/worker/runtime/cni_network.go#L66-L80
+[network policies]: https://kubernetes.io/docs/concepts/services-networking/network-policies/
