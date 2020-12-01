@@ -230,6 +230,7 @@ Here are two potential paths Concourse could take to address this use-case. More
   - How will Concourse stream single files in a volume? (i.e. when Concourse needs to read a task config from the artifact of a get step)
 - Does the CSI driver need to be aware of each Concourse cluster that is using it? Another way of phrasing this question: can/should the CSI driver support multiple concourse installations? Do we need to do anything special to support this if we decide yes?
 - Do we need to modify baggageclaim for any reason?
+- Adding image regisrty endpoints to baggageclaim so we can still support using images from a previous step? Was thinking that we could add the endpoints like Ciro did in the POC. Our baggageclaim pods will already be on each k8s node in a privileged volume. Would it be wrong to add in a cert for each baggageclaim registry so that the CRI's on all nodes can reach our baggageclaim image registry? [Trow has figured out how to add a cert](https://github.com/ContainerSolutions/trow/blob/7e3187edbdc8c37c836a2cdc133fd6c68289b11e/quick-install/install.sh#L138-L146)
 
 
 # Answered Questions
