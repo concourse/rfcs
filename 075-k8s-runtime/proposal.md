@@ -23,6 +23,22 @@ This leverages multi-tenant nature of Kubernetes and allows the Kubernetes clust
 
 With this mapping a single Kubernetes cluster can represent multiple workers and manage resources based on namespaces.
 
+### Worker Mapping Refactor
+
+Within the code base we have the following objects and interactions going on:
+- A `worker.Pool that returns a `worker.Worker` (garden + baggageclaim clients)
+- The worker pool is passed into the WorkerClient which is the thing that executes a step in a build plan. It does this by asking the worker pool to select a worker and then uses that worker to carry out the workload
+- `worker.Client` is then passed into the engine.
+
+The way these objects are nested make it difficult for us to add a runtime, which is evident in Ciro's POC work where he simmply commented out the worker pool code.
+
+Instead the code should:
+- The engine should recieve a `worker.Pool` instead of `worker.Client`. engine would then have the `worker.Pool` select a worker and return a `worker.Client`
+- `worker.Worker` will be added to `worker.Client` and removed from `worker.Pool`
+- `worker.Pool` will return a `worker.Client` instead of `worker.Worker`
+
+This results in the scheduling decision being made one layer up from where it's currently made and should make it easier for us to add runtimes like Kubernetes or even Nomad.
+
 ## Authenticating to the k8s worker
 Concourse would support both mechanisms for authenticating to the k8s cluster
 
