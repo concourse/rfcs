@@ -3,80 +3,93 @@
 A process for collaborating on substantial changes to Concourse.
 
 
+## Providing feedback on an RFC
+
+Everyone is encouraged to provide feedback on RFCs!
+
+RFC review should be focused on bringing clarity to the proposal, resolving
+open questions and surfacing risks and drawbacks. The [Concourse design
+principles](DESIGN_PRINCIPLES.md) should be used to guide the solution and to
+determine whether the proposal should be accepted.
+
+Questions and comments should be left via PR review on individual lines so that
+they can be marked as resolved. Top-level comments and pull-request reviews are
+OK for overarching commentary, but in general line-wise comments are preferred.
+
+Using GitHub reactions not only on the proposal itself but on other feedback
+comments is encouraged as a way to measure consensus without cluttering the
+comment thread.
+
+
 ## What should be proposed as an RFC?
 
 RFCs should be opened for changes that have a substantial impact on Concourse
-users and contributors. RFCs enable the community to collaborate during the
-architecture and feature design process, before getting to code and
-implementation.
+users or contributors. RFCs enable the community to collaborate during the
+architecture and feature design process, providing clarity and validation
+before jumping to implementation.
 
-An RFC may not be necessary for changes that are narrow enough in scope with
-limited impact to the rest of Concourse. If you feel that this is the case, you
-can cut straight to submitting a PR, though it's still a good idea to have an
-issue opened first to provide additional context. Do note however that pull
-requests and issues may be closed with a polite request to submit an RFC first.
+An RFC may not be necessary for changes that are narrow enough in scope and
+impact. If you feel that this is the case, you can jump straight to submitting
+a PR. Do note however that pull requests may be closed with a polite request to
+submit an RFC if we find that it needs broader feedback.
 
 If you're not sure whether to open an RFC for a change you'd like to propose,
-feel free to discuss beforehand in [Discord](https://discord.gg/MeRxXKW) - just
-ping `@rfc-czars` or guauge interest in `#contributors`.
-
-
-## Providing feedback to an RFC
-
-This process is centered around pull requests. Feedback and questions should be
-left as comments on specific lines of the pull request's proposal document, so
-that they can be marked as resolved. This is to avoid an ever-growing sequence
-of comments at the top level.
-
-Top-level comments and pull-request reviews are allowed for overarching
-commentary, but in general line-wise comments are preferred.
+feel free to [ask in `#dev`](https://discord.gg/MeRxXKW).
 
 
 ## Submitting an RFC
 
 1. Fork this repository.
 1. Copy the `000-example` RFC template, naming it something like
-   `123-my-proposal`.
-    * Don't worry too much about the number; they don't have to be sequential.
-      You can try to predict your pull request number for example, and/or just
-      edit it after submitting.
+   `000-my-proposal`.
 1. Write your RFC in `proposal.md` under your RFC directory.
-      * Try to paint a clear mental picture of the motivation for the proposal
-        first. A proposal with no context is more likely to fall under
-        scrutiny.
-      * Having a summary near the beginning of the proposal is also helpful,
-        and if your proposal defines new terms, explicitly listing those
-        up-front is also a good idea.
-      * Take special care to think about any risks, side effects, or drawbacks
+    * It may help to consult the [Concourse design principles](DESIGN_PRINCIPLES.md) to guide your design.
+    * The following sub-sections are common:
+      * **Summary**: A brief summary (up to 1 paragraph) of the proposal.
+      * **Motivation**: What issues will this proposal resolve? What patterns
+        will it improve?
+      * **Glossary**: A list of important terms introduced by or used within
+        the proposal.
+      * **Open Questions**: A list of unresolved concerns with the proposal.
+        Take special care to think about any risks, side effects, or drawbacks
         to your proposal ahead-of-time. These have to be assessed at some
-        point! If you're not sure how to resolve them, leave them under an
-        "open questions" section, and we can all try to work through them
-        together.
+        point!
 1. Submit a pull request. Your proposal may include any dependent assets
    (example content, screenshots) under its RFC directory. For convenience,
-   link to the rendered proposal in the pull request body, like so:
+   link to the rendered proposal in the pull request body like so:
 
    ```
    [Rendered](https://github.com/{YOUR NAME}/rfcs/blob/{YOUR BRANCH}/123-my-proposal/proposal.md)
    ```
 
-   Try to keep the description light, since most content should be in the
-   `proposal.md` already. But feel free to reference any relevant GitHub
-   issues, since that helps with context-building.
+   Keep the description light; the focus should be on the proposal.
+   Feel free to reference any relevant GitHub issues, since that helps with
+   context-building.
+1. Update the proposal directory name to match the pull request number, e.g.
+   `123-my-proposal`.
 1. Each RFC will be assigned to at least one reviewer. Feel free to reach out
    to them if you need help on any part of the process or with the proposal
    itself.
-1. Community members are expected to submit feedback by leaving comments on
-   lines in the pull request and submitting reviews. This allows conversations
-   to be marked "resolved" and prevents the comment history on the pull request
-   from growing larger and larger.
-    * As the RFC author, feel free to leave your own comments/feedback, using
-      the pull request as a "captain's log" as you think about the problem more
-      and reach key decisions. The point of all this is to have a clear public
-      record for the decision-making process.
+1. As the RFC author, feel free to leave your own comments/feedback, using the
+   pull request as a "captain's log" as you think about the problem more and
+   reach key decisions. The point of all this is to have a clear public record
+   for the decision-making process.
 1. Amendments to the RFC should be made by pushing more commits to the RFC
    branch. **Please do not rebase and force-push over your own commits.**
    Instead, try to make meaningful commits that summarize their changes.
+
+
+### Collecting feedback
+
+The top 10 open RFCs, ranked by total GitHub reactions, will be listed on the
+[Concourse website](https://concourse-ci.org). This will obviously bias even
+more reactions towards the top RFCs, but the hope is to focus-fire feedback on
+the most impactful RFCs to bring more clarity and accelerate them to
+resolution, making room for other RFCs in the list.
+
+If you have submitted a new RFC, feel free to advocate for it and collect votes
+by linking to it from issues or contexts where you feel it is relevant, but
+please play fair; don't just vote brigade your way to the list.
 
 
 ### Resolution
@@ -94,8 +107,8 @@ the following labels:
   for implementation.
 
 These labels mark the beginning of the final phase of the RFC. During this
-point, any additional feedback will be sought out by communicating it on our
-[blog](https://blog.concourse-ci.org).
+point, any additional feedback will be sought out by bumping it to the top of
+the RFC list at the Concourse website.
 
 There will then be a two-week quiet period on the RFC. If during this time
 there is a challenge to the resolution, the label will be removed and the RFC
