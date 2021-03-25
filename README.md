@@ -155,6 +155,20 @@ From there, the implementation process falls under the normal [Concourse
 development process][contributing].
 
 
+## Revising an RFC
+
+RFCs represent the planning phase. An RFC's proposal is not the source of truth
+for the feature's documentation, and should not be revised to keep up with
+later iterations after the initial proposal is implemented. A new RFC should be
+proposed for subsequent changes instead.
+
+If an RFC is merged and later changes are deemed necessary prior to final (i.e.
+non-experimental) implementation, a follow-up PR may be submitted that updates
+the proposal in-place. In this case the RFC author must include a MAJOR.MINOR
+revision number in the proposal and maintain a brief summary of changes at the
+bottom of the proposal.
+
+
 ## License
 
 All RFCs, and any accompanying code and example content, will fall under the
