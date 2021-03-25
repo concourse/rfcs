@@ -66,23 +66,25 @@ feel free to [ask in `#dev`](https://discord.gg/MeRxXKW)!
    [Rendered](https://github.com/{YOUR NAME}/rfcs/blob/{YOUR BRANCH}/123-my-proposal/proposal.md)
    ```
 
-1. Feel free to leave your own comments and questions, using the pull request
-   as a "captain's log" as you reason about the problem more and reach key
-   decisions. Doing so helps build a clear public record for the
-   decision-making process.
+1. Feel free to review your own RFC and leave comments and questions as you
+   reason about the problem and reach key decisions. Doing so helps build a
+   public record of the decision-making process.
 
-1. Feel free to collect feedback and votes (via GitHub reactions) for your own
-   RFC by linking to it from issues or contexts where it is relevant.
+1. The RFC will be assigned to a member of the [**core** team][core-team]. The
+   assignee is responsible for providing feedback and eventually shepherding
+   the RFC through the [resolution process](#resolution). Reach out to your
+   RFC's assignee if you need any help with the RFC process.
 
-   The [Concourse website](https://concourse-ci.org) lists the top open RFCs
-   ranked by GitHub reactions in order to collect feedback from end users. The
-   goal of listing them this way is to focus attention on the RFCs most
-   relevant to the community, increasing clarity and accelerating them to
-   resolution, making room for other RFCs in the list.
+1. Collect user feedback and votes (GitHub reactions) for your own RFC by
+   linking to it in issues or contexts where it is relevant. Please be
+   respectful of other RFC authors and avoid vote brigading; diversity of
+   perspective is more important than having the most votes.
 
-   Please be respectful of other RFC authors and avoid vote brigading;
-   diversity of perspective is more important than simply having the most
-   votes.
+   The [Concourse website](https://concourse-ci.org) lists open RFCs ranked by
+   GitHub reactions in order to increase exposure to end users. The goal of
+   ranking them is to focus attention on the RFCs most relevant to the
+   community, increasing clarity through user feedback and accelerating them to
+   resolution.
 
 1. Amend your proposal in response to feedback by pushing more commits to your
    fork. Whenever possible, please make meaningful commits that summarize the
@@ -91,16 +93,10 @@ feel free to [ask in `#dev`](https://discord.gg/MeRxXKW)!
 
 ## Reviewing RFCs
 
-The [**core** team][core-team] assigns each RFC to one reviewer from the team.
-The assignee is responsible for providing feedback and shepherding the RFC
-through the [resolution process](#resolution). Feel free to ask your RFC's
-assignee if you need help with any part of the RFC process or with the proposal
-itself.
-
 Concourse users and contributors are encouraged to review RFCs alongside
-members of the core team. Feedback from many different perspectives is crucial
+members of the core team. Feedback from diverse perspectives is necessary for
 determining a proposal's efficacy, impact, and priority. Reviewing RFCs is also
-good practice for [joining the core team][joining-a-team] someday!
+great practice for [joining the core team][joining-a-team] someday!
 
 Reviewers should focus on resolving open questions, surfacing risks and
 drawbacks, and providing constructive critique of the overall approach. The
@@ -136,26 +132,26 @@ as before.
 ## Implementing an RFC
 
 When an RFC is merged the core team assignee is responsible for opening an
-issue on the [Concourse repository](https://github.com/concourse/concourse) in
-order to keep track of its implementation. The issue can be lightweight and
-just reference the RFC. The assignee must also add a link to the issue at the
-top of the RFC's proposal document.
+issue on the [Concourse repository](https://github.com/concourse/concourse) to
+keep track of its implementation. The issue can be lightweight and just
+reference the RFC. The assignee must also add a link to the issue at the top of
+the RFC's proposal document.
 
 The [**maintainers** team][maintainers-team] is responsible for determining the
 proposal's priority by adding a **priority/high**, **priority/medium**, or
-**priority/low** label. Priority is an approximation by overall value and
-desired timeline for implementation.
+**priority/low** label to the RFC's issue. Priority is an approximation of
+overall value and desired timeline for implementation.
 
 An RFC author is not necessarily responsible for its implementation, though
 they may volunteer. If the maintainers have sufficient bandwidth they may place
 it on their roadmap by prioritizing the issue in a GitHub project. Otherwise
-the maintainers team will add a **help wanted** label to the issue.
+the maintainers will add a **help wanted** label to the issue.
 
 In any case, contributors may volunteer to implement a proposal provided that
 work has not already begun. If you would like to volunteer, please leave a
 comment on the issue to let others know!
 
-From there, the implementation process itself falls under the normal [Concourse
+From there, the implementation process falls under the normal [Concourse
 development process][contributing].
 
 
