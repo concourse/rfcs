@@ -5,7 +5,7 @@ Concourse's goal is to solve automation, once and for all, without becoming part
 
 ## Expressive by being precise
 
-Concourse should provide concepts that build a strong mental model for the user's project that remains intuitive as their automation requirements grow.
+Concourse should provide concepts that build a strong mental model for the user's project, and this model should remain intuitive as the user's automation requirements grow.
 
 Concepts should precisely outline their motivation and intended workflows. Friction and complexity resulting from the imprecise application of a concept should be a cue to introduce new ideas. ([Example](https://blog.concourse-ci.org/reinventing-resource-types/))
 
