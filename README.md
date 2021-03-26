@@ -6,7 +6,7 @@ collaborate during the design process, providing clarity and validation before
 jumping to implementation.
 
 
-## When this process is necessary
+## When the RFC process is necessary
 
 The RFC process is necessary for changes which have a substantial impact on end
 users, operators, or contributors. "Substantial" is subjective, but it
