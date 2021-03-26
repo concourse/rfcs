@@ -21,4 +21,4 @@ Concepts should not be highly specialized for one domain or introduce tight coup
 
 Concourse should prevent [anti-patterns](https://github.com/concourse/concourse/wiki/Anti-Patterns) and the accumulation of technical debt. Concourse's concepts should make good practices feel intuitive and bad practices feel uncomfortable.
 
-Automation should be portable and reproducible. Recovery from disaster scenarios (e.g. total cluster loss) should be possible with minimal disruption to the path to production. Each piece of mission-critical state should be kept in an external source of truth, allowing Concourse to be an ephemeral choreographer.
+Automation should be self-contained and reproducible in order to maintain business continuity when recovering from disaster scenarios (e.g. total cluster loss). Concourse should merely be a choreographer of mission-critical state kept in an external source of truth, allowing individual installations to be ephemeral.
