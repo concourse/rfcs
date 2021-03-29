@@ -16,7 +16,7 @@ generally includes:
 * Changes to how Concourse is packaged, distributed, or configured.
 * Changes with significant architectural implications (new runtimes, auth
   schemes, etc.).
-* Changes which modify or introduce officially supported HTTP APIs.
+* Changes which modify or introduce officially supported interfaces (HTTP APIs, external integrations, etc).
 
 An RFC is not necessary for changes which have narrow scope and don't leave
 much to be discussed:
