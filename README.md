@@ -111,8 +111,19 @@ if you don't have much more to add.
 
 ### Resolution
 
-When enough clarity and consensus has been reached the core team assignee will
-grant the RFC one of the following labels:
+The review process should lead to consensus from three different perspectives:
+
+* Members of the **core** team have determined whether the proposal fits with
+  the Concourse design principles and whether the changes sufficiently improve
+  the product.
+* The **maintainers** have determined whether the proposal is worth
+  maintaining, i.e. whether the benefits of the proposal outweigh any technical
+  tradeoffs, or if it introduces an unsustainable maintenance burden.
+* Enough community input has been provided to validate the need and efficacy of
+  the proposal.
+
+Once the review status stabilizes and clarity has been reached, the core team
+assignee will grant the RFC one of the following labels:
 
 * **resolution/merge**: the proposal will be merged; there are no outstanding
   objections, and implementation can begin as soon as the RFC is merged.
