@@ -50,6 +50,11 @@ The `actions` lists all the [actions][action-matrix] that service account would
 be allowed.
 
 
+This would involve a rework of the auth system as it's now possible for an
+incomming request to be from a user or a service account. Users are authorized
+to a limited number of roles via the [RBAC system][rbac], whereas service
+accounts are authorized to a dynamic set of actions.
+
 # Open Questions
 
 - Service accounts encourages the idea of "automating the automation", and can
@@ -64,7 +69,7 @@ be allowed.
 
 # New Implications
 
-
 [action-matrix]: https://concourse-ci.org/user-roles.html#action-matrix
 [set-pipeline-step]: https://github.com/concourse/rfcs/blob/master/031-set-pipeline-step/proposal.md
 [projects]: https://github.com/concourse/rfcs/pull/32
+[rbac]: https://github.com/concourse/rfcs/blob/master/003-rbac/proposal.md
