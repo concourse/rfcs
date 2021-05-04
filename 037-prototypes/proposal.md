@@ -599,8 +599,325 @@ prototypes with special pipeline pipeline semantics and step syntax. These
 
 * Is this terminology unrelatable?
 
+### Inputs/Outputs
+
+An open question is how best to provide inputs and outputs to prototypes,
+particularly via the `run` step. The mockup of the `run` step in the [Pipeline
+Usage](#pipeline-usage) section above suggested these could be configured via
+`inputs`/`input_mapping` and `outputs`/`output_mapping`, but this approach has
+some downsides:
+
+* Stutter when `run.params` references the inputs, as you need to specify the
+  artifact name twice, e.g.
+  ```yaml
+  run: build
+  type: go
+  inputs: [my-repo]
+  params:
+    package: my-repo/cmd/my-cmd
+  output_mapping: {binary: my-repo-binary}
+  ```
+  * In this case, this could be avoided by using an `input_mapping` to a name
+    specific to the prototype. However, this only works when the prototype
+    takes in a fixed set of inputs with a fixed set of names, but doesn't
+    work when the prototype takes in a list of inputs, for instance.
+* It's awkward to define a set of outputs that depends on the inputs. For
+  instance, imagine a `go` prototype that can compile multiple packages
+  simultaneously, and emit an `output` for each one. Under this input/output
+  approach, this may look something like:
+  ```yaml
+  run: build
+  type: go
+  inputs: [repo1, repo2]
+  params:
+    packages:
+      cmd1-binary: repo1/cmd/cmd1
+      cmd2-binary: repo1/cmd/cmd2
+      cmd3-binary: repo2/cmd/cmd3
+  outputs:
+  - cmd1-binary
+  - cmd2-binary
+  - cmd3-binary
+  ```
+  or
+  ```yaml
+  run: build
+  type: go
+  inputs: [repo1, repo2]
+  params:
+    packages:
+    - repo1/cmd/cmd1
+    - repo1/cmd/cmd2
+    - repo2/cmd/cmd3
+  output_mapping:
+    binary1: cmd1-binary
+    binary2: cmd2-binary
+    binary3: cmd3-binary
+  ```
+  In the first case, the prototype defines a pseudo-`output_mapping` in its
+  config, which requires repetition when defining the set of `outputs`. In the
+  second case, the `outputs` repetition is gone, but the prototype needed to
+  invent a naming scheme for the outputs (in this case, suffixing a fixed name
+  with the 1-based index of the package). Both approaches are fairly awkward to
+  work with.
+
+Here are some alternative approaches that have been considered:
+
+#### Option 1a - dynamic input/output config
+
+The prototype's `info` response will include the required
+inputs/outputs(/caches?) based on the request object (i.e. `run.params`).
+
+For instance, with the following `run` step:
+
+```yaml
+run: some-message
+type: some-prototype
+params:
+  files: [some-artifact-1/some-file, some-artifact-2/some-other-file]
+  other_config: here
+  output_as: some-output
+```
+
+...the prototype may emit the following config, ascribing special meaning to
+`files` and `output_as`:
+
+```yaml
+inputs:
+- name: some-artifact-1
+- name: some-artifact-2
+
+outputs:
+- name: some-output
+```
+
+...and Concourse will mount these artifacts appropriately.
+
+**Pros**
+
+* No new concepts
+  * If you're familiar with `task` configs, this is effectively just a more
+    flexible version of the same concept
+  * No new pipeline syntax/semantics
+* Prototype details can be encapsulated behind config
+  * e.g. with the [oci-build-task], if you want to persist the build cache, you
+    need to specify: `caches: [{path: cache}]`
+  * With an approach like this, you could just specify: `cache: true` (i.e. you
+    don't need to know where the cache is)
+
+**Cons**
+
+* Requires inventing a naming scheme when the set of outputs is dynamic based
+  on the inputs
+* Has performance implications. Ignoring caching, `run` steps will need to spin
+  up two containers (one for making the `info` request, and one for running the
+  prototype message)
+  * Caching is possible when the configuration is fixed, but with variable
+    interpolation it may not work so well
+* More burden on prototype authors as each message now needs two handlers - one
+  for executing the message, and one for generating the inputs/outputs.
+
+#### Option 1b - [JSON schema] based dynamic input/output config
+
+Similar to 1a in that we rely on the prototype to instruct Concourse on what
+the inputs/outputs are. However, rather than the `info` response providing the
+inputs/outputs config, it instead gives a [JSON schema] for each message, with
+some special semantics for defining inputs/outputs:
+
+e.g. for a `build` message on an `oci-image` prototype:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "concourse:input": {
+          "name": "((name))"
+        }
+      }
+    },
+    "other_config": {
+      "type": "string"
+    },
+    "output_as": {
+      "type": "string",
+      "concourse:output": {
+        "name": "((name))"
+      }
+    }
+  },
+  "required": ["context"]
+}
+```
+
+This isn't fully fleshed out, but the key concept is these `concourse:*`
+keywords, which allow you to say: this element in the object is an
+input/output.
+
+**Pros**
+
+* Performance implications from 1a disappear - much easier to cache
+* All inputs/outputs need to be mentioned in the config, so nothing is implicit
+  * Can also be viewed as a Con - more verbose, and is closer to the original
+  * Unlike the `inputs`/`input_mapping`, `outputs`/`output_mapping` approach,
+    however, this approach requires less repetition, as the inputs/outputs only
+    need to be defined in one place
+* Gives a way for Concourse to easily validate input to a prototype, and for
+  IDE's to provide more useful auto-complete suggestions - related to
+  https://github.com/concourse/concourse/issues/481
+  * The IDE aspect may not be practical as getting the JSON schema requires
+    making the `info` request against a Docker image.
+
+**Cons**
+
+* Makes it much more of a burden to write prototypes, as each message *needs* a
+  JSON schema
+* Probably too restrictive - requires Concourse to support specific custom
+  keywords in the JSON schema. If you wanted to define a map of inputs to
+  paths, for instance, we'd need to provide a special keyword for that (as
+  `concourse:input` alone isn't enough)
+
+#### Option 2a - emit outputs in response objects
+
+This option implies two things:
+
+1. A way for pipelines to explicitly specify what inputs should be provided to
+   a prototype (whereas options 1a/b had the prototypes telling Concourse what
+   inputs should be provided)
+2. A way for prototypes to provide output artifacts as part of its message
+   response (whereas option 1a included in the info response, i.e. not at
+   "runtime" w.r.t. running the message)
+
+The response objects could look something like:
+
+```json
+{
+  "object": {
+    "some_data": 123,
+    "some_output": {"artifact": "./path"}
+  }
+}
+```
+
+Concourse will interpret `{"artifact": "./path"}` as an output, where `./path`
+is relative to some path that's mounted by default to all prototypes. *This
+means that multiple outputs may share an output volume, and differ only by the
+path within that volume.*
+
+Since prototypes can emit multiple response objects, this also means you can
+have *streams* of outputs sharing a name that are identified by some other
+field(s). e.g. the above artifact could be identified as
+`some_output{some_data: 123}` (or something along those lines). That gives you
+the option of aggregating/filtering the stream of outputs by a subset of the
+fields that identify them - a similar idea has been fleshed out for the
+`across` step in
+https://github.com/concourse/rfcs/pull/29#discussion_r619863020.
+
+w.r.t. providing inputs, we can use an approach similar to `put.inputs:
+detect`, but more explicit (from the pipeline's perspecive). e.g.
+
+```yaml
+run: some-message
+type: some-prototype
+params:
+  files: [@some-artifact-1/some-file, @some-artifact-2/some-other-file]
+  other_config: here
+```
+
+Here, `@` is a special syntax that points to an artifact name and both *mounts
+it to the container* and *resolves to an absolute path to the artifact*. In
+this example, the prototype would receive something like:
+
+```json
+{
+  "object": {
+    "files": ["/tmp/build/some-artifact-1/some-file", "/tmp/build/some-artifact-2/some-file"],
+    "other_config": "here"
+  },
+  "response_path": "..."
+}
+```
+
+Interestingly, data and artifacts are all collocated, which raises the question
+- do we need a separate namespace for artifacts like we have now, or can they
+be treated as "just vars" and share the local vars namespace?
+
+In order to use emitted artifacts within the pipeline, you can "set" them to
+the local namespace:
+
+```yaml
+run: some-message
+type: some-prototype
+params:
+  files: [@some-artifact-1/some-file, @some-artifact-2/some-other-file]
+  other_config: here
+set_artifacts: # or, if we do collapse the namespaces, this could be `set_vars`
+  some_output: my-output # some awkwardness around _ vs - here
+```
+
+**Pros**
+
+* Removes burden from prototype authors to define what inputs/outputs are
+  required up-front
+* More flexible - if set of outputs depends on things only determinable at
+  runtime, you can express that here
+* Output streams let you do interesting filtering (example in
+  https://github.com/concourse/rfcs/pull/29#discussion_r619863020), and avoid
+  the issue of needing to invent a naming scheme with sets of common outputs.
+
+**Cons**
+
+* New pipeline syntax/concepts to learn
+* Can't mount inputs at specific paths - if your prototype requires a specific
+  filesystem layout, it needs to shuffle the inputs around
+  * e.g. [oci-build-task] may depend on inputs being at certain paths relative to
+    the `Dockerfile`
+* Since outputs can appear anywhere in the response object, different
+  prototypes may provide a different way to interact with outputs, rather than
+  having a single flat namespace of outputs
+  * Can also be viewed as a Pro, but I feel like having a consistent way of
+    referring to artifacts within a pipeline is beneficial
+
+**Questions**
+
+* Is merging the concepts of vars and artifacts confusing/unintuitive?
+
+#### Option 2b - emit outputs adjacent to the response object
+
+This approach uses the same `@` syntax semantics as 2a - the main difference is
+that it explicitly differentiates between outputs and data by emitting outputs
+in the message response, but not in the response object. e.g.
+
+```json
+{
+  "object": {
+    "some_data": 123
+  },
+  "outputs": [
+    {"name": "some_output", "path": "./path/to/output"}
+  ]
+}
+```
+
+**Pros**
+
+Like 2a, but also:
+* Consistent with the existing notion of outputs (i.e. flat namespace of
+  artifacts than can be referenced by name)
+  * Still allows for filtering the stream down by the corresponding `object`
+
+**Cons**
+
+Like 2a, but also:
+* Can't unify concepts of vars and artifacts
+
 
 [rfc-1]: https://github.com/concourse/rfcs/pull/1
 [rfc-1-comment]: https://github.com/concourse/rfcs/pull/1#issuecomment-477749314
 [rfc-24]: https://github.com/concourse/rfcs/pull/24
 [rfc-38]: https://github.com/concourse/rfcs/pull/38
+[oci-build-task]: https://github.com/vito/oci-build-task
+[JSON schema]: https://json-schema.org/
