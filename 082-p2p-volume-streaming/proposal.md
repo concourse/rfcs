@@ -37,14 +37,14 @@ source-baggageclaim       ATC               dest-baggageclaim
 
 The URL that ATC uses to access worker (baggageclaim) is not visible by workers. Thus
 to allow source worker to access dest worker directly, ATC needs to ask dest worker for
-its public IP. So we need to add a bc API `bc-p2p-url`, so that ATC can get dest worker's
+its public IP. So we need to add a bc API `p2p-url`, so that ATC can get dest worker's
 baggageclaim url, then ATC invokes a new bc API `stream-p2p-out` to source worker, then 
 source worker calls dest worker's bc API `stream-in` to ship volumes to dest worker.
 
 ```                           
 source-baggageclaim       ATC               dest-baggageclaim
       |                    |                    |
-      |                    |   GET bc-p2p-url   |
+      |                    |   GET p2p-url      |
       |                    | -----------------> |
       | PUT stream-p2p-out |                    |
       | <----------------- |                    |
@@ -60,12 +60,12 @@ source-baggageclaim       ATC               dest-baggageclaim
 This API takes no parameter and returns a HTTP URL that should be accessible from other
 workers.
 
-### 2. Add `PUT /stream-p2p-out?destUrl=<dest bc url>&encoding=<gzip/zstd>&path=<dest path>`
+### 2. Add `PUT /stream-p2p-out?streamInURL=<stream-in url of dest bc>&encoding=<gzip/zstd>&path=<dest path>`
 
 This API guides source worker to stream a volume directly to dest worker. It takes three
 parameters:
 
-* `destUrl`: dest baggage-claim's p2p url
+* `streamInURL`: dest baggage-claim's volume stream-in url
 * `encoding`: data compression method, `gzip` or `zstd`
 * `path`: will be passed to `stream-in`
 
@@ -91,6 +91,8 @@ bind-ip+port for p2p streaming.
 out, the other optimization is that, when streaming small files, like small text/json/yaml files, and so on,
 transferring raw files might be cheaper than shell-executing `tar` command to compress the files then transferring.
 
+3. The current RFC assumes all workers are on the same network. A future iteration could have workers 
+specify their network somehow - maybe just a name to indicate which workers live in the same network.
 
 # Answered Questions
 
