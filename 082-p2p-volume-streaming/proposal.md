@@ -99,3 +99,6 @@ specify their network somehow - maybe just a name to indicate which workers live
 
 # New Implications
 
+This feature assumes all workers are on the same network, in other words, all workers can reach to each
+other directly. Don't enable p2p volume streaming if the assumption is not true, otherwise volume streaming
+may fail, which in turn leads to build failures.
