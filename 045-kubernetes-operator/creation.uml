@@ -1,0 +1,69 @@
+@startuml
+title creation
+
+  actor User
+  control Informer
+  participant Controller
+  participant OtherControllers
+  participant Kubernetes
+
+  autoactivate on
+
+  User -> Kubernetes : Concourse
+
+    Kubernetes -> Controller: Admit
+    note right
+         validate the configuration
+    end note
+    Controller --> Kubernetes: Ok
+
+  Kubernetes --> User: Ok
+
+  ...
+
+  Informer -> Controller : Reconcille
+    Controller -> Kubernetes : Get Concourse K8s Object
+    Kubernetes --> Controller: Concourse Spec
+
+    hnote over of Controller #white
+         create the certs and
+         other credentials
+    end hnote
+
+    Controller -> Kubernetes : Secrets
+    Kubernetes --> Controller: Ok
+
+    Controller -> Kubernetes : Deployment, Service, etc
+    note right
+         create the resources that deploy
+         the Concourse on top of pods, etc
+    end note
+    Kubernetes --> Controller: Admitted
+
+    Controller -> Kubernetes : Update Status
+    Kubernetes --> Controller: Ok
+
+  deactivate
+
+  ...
+
+  Informer -> OtherControllers : Reconcille
+    note right
+         e.g., replicaset having now to
+         achieve the right number of replicas
+    end note
+
+    OtherControllers -> Kubernetes : Create Pods, etc
+    Kubernetes --> OtherControllers : Ok
+      autoactivate off
+
+    create participant Concourse
+      deactivate
+      
+    ...
+      
+    hnote over OtherControllers #white
+      eventually creates
+    end hnote
+    OtherControllers -> Concourse
+@enduml
