@@ -2,6 +2,8 @@
 
 Decouple webhooks from individual resources, allowing Concourse to process a webhook payload and queue a `check` for the approriate resource(s) (and eventually [var sources]).
 
+Resources backed by [prototypes] subscribe to webhooks automatically based on their `source` configuration.
+
 
 # Motivation
 
