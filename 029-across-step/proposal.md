@@ -1,7 +1,7 @@
 # `across` step
 
 This proposal introduces a mechanism by which a build plan can be executed
-multiple times with different `((vars))`, in service of build matxies, pipeline
+multiple times with different `((vars))`, in service of build matrixes, pipeline
 matrixes, and - building on [`((var))` sources][var-sources-rfc] - dynamic
 variations of both.
 
