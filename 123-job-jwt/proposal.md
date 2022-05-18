@@ -12,10 +12,7 @@ level, the claims can become incredibly granular, and allow for flexible policy
 assignment. Additionally, this type of framework would allow authentication to
 any number of other frameworks that support the same standard. Then, a more
 complete Vault integration can be built on top of this, as could any integration
-that supports the JWT standard. Lastly, it removes the need for Concourse to
-connect to only one Vault instance, only one Vault namespace, only one Vault
-engine, and have Concourse show up as a single entity in Vault audit logs with a
-policy that is far from being least privilege.
+that supports the JWT standard.
 
 With a JWT Vault Authentication model, each team could have their pipelines
 connect to their own isolated instance or namespace with policy sets tailored to
@@ -42,6 +39,111 @@ describe the job and could drive authentication and authorization claims.
 
 Create a public API endpoint that responds to requests where the signed JWT is
 part of the payload, likely leveraging JWKS.
+
+### Potential Workflow in Hashicorp Vault context
+
+```yaml
+var_sources:
+- name: hvjwt
+  type: vault
+  config:
+    url: https://vault.example.com
+    path_prefix: "/concourse"
+    lookup_templates: ["/{{.Team}}/{{.Pipeline}}/{{.Secret}}", "/{{.Team}}/{{.Secret}}"]
+    shared_path: "/shared/{{.Pipeline}}/{{.Secret}}"
+    namespace: "/root"
+    auth_path: "/auth/jwt"
+    auth_type: "jwt"
+    auth_role: "example"
+
+jobs:
+- name: use-vars
+  plan:
+  - task: use-vars
+    config:
+      platform: linux
+
+      image_resource:
+        type: mock
+        source: {mirror_self: true}
+
+      run:
+        path: sh
+        args:
+        - -exc
+        - |
+          test "((hvjwt:some_secret.username))" = "hello-im-a-username"
+          test "((hvjwt:"secret with_spaces.etc".some_key))" = "some-value"
+
+```
+
+This would represent a reasonable configuration. If it is determined that
+`auth_params` field in the `var_source.config.vault_config` schema should be
+re-used, then `auth_params: {role: "example", jwt: "((.CONCOURSE_CI_JWT))"}`
+might be a reasonable value, assuming that local environment variables can be
+referenced in such a way and we have pre-populated `CONCOURSE_CI_JWT` with the
+signed JWT during container pre-flight. However, this format would require more
+awareness on the part of the person configuring the pipeline, and the `jwt`
+field in the `auth_params` argument would always be the same, so it seems to
+make sense to abstract it in this case.
+
+Then, the call to the Vault API for the authentication step might look like the
+following:
+
+```sh
+#!/usr/bin/env bash
+auth_path=$(echo ${auth_path} | sed -E "s|^/*||g" | sed -E "s|/*$||g" |
+  sed -E "s|^auth/?||g" | sed -E "s|/?login$||g" | sed -E "s|/+|/|g"
+)
+resp=$(curl -s -X POST -H "X-Vault-Namespace: ${namespace}" \
+  --data @payload.json ${url}/v1/auth/${auth_path}/login
+)
+export VAULT_TOKEN=$(echo "${resp}" | jq -r ".auth.client_token")
+```
+
+or (forgive my golang pseudocode, rusty and untested):
+
+```golang
+// not dealing with errors or worrying about syntax, this is pseudocode
+// but please still make fun of my pseudocode, maybe I'll learn something
+func (ap *VarSources.Config.auth_path) FmtAuthPath() nil {
+  ap := strings.Trim(ap, "/")
+  ap := strings.TrimPrefix(ap, "auth/")
+  ap := strings.TrimSuffix(ap, "/login")
+  ap := path.Clean(ap)
+}
+type LoginData struct {
+  Role string `json:"role"`
+  JWT  string `json:"jwt"`
+}
+type LoginResp struct {
+  auth struct {
+    ClientToken string   `json:"client_token"`
+    Accessor    string   `json:"accessor"`
+    Policies    []string `json:"policies"`
+    Lease       int      `json:"lease_duration"`
+    Renewable   bool     `json:"renewable"`
+  } `json:"auth"`
+}
+func (c *VarSources.Config) VaultAuth() (token string, accessor string, err error) {
+  // I'm sure the vault package implements the auth method much better than this
+  client := &http.Client{}
+  uri := fmt.Sprintf("%s/v1/auth/%s/login", c.url, c.auth_path.FmtAuthPath())
+  jsonData := LoginData{
+    Role: c.auth_role,
+    JWT:  os.Getenv("CONCOURSE_CI_JWT")
+  }
+  var buf bytes.Buffer
+  err := json.NewEncoder(&buf).Encode(jsonData)
+  req, err := http.NewRequest("POST", uri, &buf)
+  req.Header.Add("X-Vault-Namespace", c.namespace)
+  resp, err := client.Do(req)
+  defer resp.Body.Close()
+  var dec LoginResp
+  dec = json.NewDecoder(&buf).Decode(resp)
+  return dec.auth.ClientToken, dec.auth.Accessor, nil
+}
+```
 
 ## Open Questions
 
