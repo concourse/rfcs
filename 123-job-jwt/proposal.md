@@ -12,7 +12,7 @@ each pipeline in Concourse in a manual manner. Many other CI solutions and cloud
 providers solve the "secret zero" problem by provisioning a signed JWT to their
 workloads automatically, and providing a path to signature verification in a
 manner that the external applications can trust.
-z
+
 Should this be implemented, Concourse jobs will be able to leverage this
 automatically generated JWT to be the "secret zero" needed to communicate with
 external systems (such as Hashicorp Vault, AWS, and others) and will no longer
@@ -38,8 +38,6 @@ describe the job and could drive authentication and authorization claims.
 
 Create a public API endpoint that responds to requests where the signed JWT is
 part of the payload, likely leveraging JWKS.
-
-
 
 ## Open Questions
 
