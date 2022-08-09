@@ -6,23 +6,22 @@ validation of the issued JWT.
 
 ## Motivation
 
-Bluntly, the native integration with Hashicorp Vault is scoped only to static
-secrets and this implementation is inflexible. By leveraging JWT auth at a job
-level, the claims can become incredibly granular, and allow for flexible policy
-assignment. Additionally, this type of framework would allow authentication to
-any number of other frameworks that support the same standard. Then, a more
-complete Vault integration can be built on top of this, as could any integration
-that supports the JWT standard.
-
-With a JWT Vault Authentication model, each team could have their pipelines
-connect to their own isolated instance or namespace with policy sets tailored to
-the needs of the pipeline jobs, which would enable least privliege models. This
-would also scale better from the Vault perspective, and instead of Concourse
-having to deliver secrets securely from a global persona, a simple trust
-relationship can be established to the Concourse JWT validation API endpoint.
-
-Enabling JWT even opens up the ability to allow Concourse pipelines to
-authenticate and authorize to arbitrary custom APIs if desired.
+Concourse runners lack an identity mechanism that can be used to authenticate to
+external systems. This lack means that an initial secret must be provided to
+each pipeline in Concourse in a manual manner. Many other CI solutions and cloud
+providers solve the "secret zero" problem by provisioning a signed JWT to their
+workloads automatically, and providing a path to signature verification in a
+manner that the external applications can trust.
+z
+Should this be implemented, Concourse jobs will be able to leverage this
+automatically generated JWT to be the "secret zero" needed to communicate with
+external systems (such as Hashicorp Vault, AWS, and others) and will no longer
+require a Concourse administrator (or person configuring a pipeline) to provide
+a static credential to Concourse. This alleviates the need for a human to handle
+sensitive credentials, increases security by ensuring credentials are not
+statically configured and JWTs are ephemeral to each run, and reduces
+Concourse's need to properly handle and encrypt data (can be limited to storing
+the JWT private signing key).
 
 ## Proposal
 
@@ -40,7 +39,45 @@ describe the job and could drive authentication and authorization claims.
 Create a public API endpoint that responds to requests where the signed JWT is
 part of the payload, likely leveraging JWKS.
 
+
+
+## Open Questions
+
+- Where should the claims be aggregated and signing portion be completed? (atc?)
+- How should the signed JWT be delivered to the container runtime?
+- Where should the validation endpoint live? (web?)
+- Where should the signed JWT live? (Environment Variable + File?)
+
+## Answered Questions
+
+(This section intentionally left blank)
+
+## New Implications
+
+Since it is a new feature, placed into optional paths, it should not
+significantly impact existing workflows. A potential issue may arise if the
+pipeline defines resources or executes job tasks that interact with the proposed
+locations for the signed JWT in the environment. However, if the placement of
+the JWT happens early enough in the lifecycle, this can be mitigated as the
+environment variable would simply be overwritten by the user config. A file
+location would present a harder collision, but there should be reserved paths
+for Concourse artifacts, potentially even mounted to the container as a
+read-only filesystem.
+
+Because we are proposing that the JWT be used externally with products such as
+Hashicorp Vault, the JWT would do nothing unless configured to be trusted by the
+external system. Thus, the impact to existing pipelines would be minimal.
+
+## Appendixes
+
 ### Potential Workflow in Hashicorp Vault context
+
+A Hashicorp Vault operator would have to mount and configure the JWT Auth Method
+like so:
+
+```sh
+curl -X POST -H "X-Vault-Request: true" -H "X-Vault-Token: $(vault print token)" -d '{"type":"jwt","description":"","config":{"options":null,"default_lease_ttl":"0s","max_lease_ttl":"0s","force_no_cache":false},"local":false,"seal_wrap":false,"external_entropy_access":false,"options":null}' https://127.0.0.1:8200/v1/sys/mounts/concourse
+```
 
 ```yaml
 var_sources:
@@ -52,7 +89,7 @@ var_sources:
     lookup_templates: ["/{{.Team}}/{{.Pipeline}}/{{.Secret}}", "/{{.Team}}/{{.Secret}}"]
     shared_path: "/shared/{{.Pipeline}}/{{.Secret}}"
     namespace: "/root"
-    auth_path: "/auth/jwt"
+    auth_path: "/auth/concourse"
     auth_type: "jwt"
     auth_role: "example"
 
@@ -100,76 +137,3 @@ resp=$(curl -s -X POST -H "X-Vault-Namespace: ${namespace}" \
 )
 export VAULT_TOKEN=$(echo "${resp}" | jq -r ".auth.client_token")
 ```
-
-or (forgive my golang pseudocode, rusty and untested):
-
-```golang
-// not dealing with errors or worrying about syntax, this is pseudocode
-// but please still make fun of my pseudocode, maybe I'll learn something
-func (ap *VarSources.Config.auth_path) FmtAuthPath() nil {
-  ap := strings.Trim(ap, "/")
-  ap := strings.TrimPrefix(ap, "auth/")
-  ap := strings.TrimSuffix(ap, "/login")
-  ap := path.Clean(ap)
-}
-type LoginData struct {
-  Role string `json:"role"`
-  JWT  string `json:"jwt"`
-}
-type LoginResp struct {
-  auth struct {
-    ClientToken string   `json:"client_token"`
-    Accessor    string   `json:"accessor"`
-    Policies    []string `json:"policies"`
-    Lease       int      `json:"lease_duration"`
-    Renewable   bool     `json:"renewable"`
-  } `json:"auth"`
-}
-func (c *VarSources.Config) VaultAuth() (token string, accessor string, err error) {
-  // I'm sure the vault package implements the auth method much better than this
-  client := &http.Client{}
-  uri := fmt.Sprintf("%s/v1/auth/%s/login", c.url, c.auth_path.FmtAuthPath())
-  jsonData := LoginData{
-    Role: c.auth_role,
-    JWT:  os.Getenv("CONCOURSE_CI_JWT")
-  }
-  var buf bytes.Buffer
-  err := json.NewEncoder(&buf).Encode(jsonData)
-  req, err := http.NewRequest("POST", uri, &buf)
-  req.Header.Add("X-Vault-Namespace", c.namespace)
-  resp, err := client.Do(req)
-  defer resp.Body.Close()
-  var dec LoginResp
-  dec = json.NewDecoder(&buf).Decode(resp)
-  return dec.auth.ClientToken, dec.auth.Accessor, nil
-}
-```
-
-## Open Questions
-
-- Where should the claims be aggregated and signing portion be completed? (atc?)
-- How should the signed JWT be delivered to the container runtime?
-- Where should the validation endpoint live? (web?)
-- Where should the signed JWT live? (Environment Variable + File?)
-- Should the validation step fail after the container dies regardless of `exp`
-claim? (JWT only valid for period equal to job runtime)
-
-## Answered Questions
-
-(This section intentionally left blank)
-
-## New Implications
-
-Since it is a new feature, placed into optional paths, it should not
-significantly impact existing workflows. A potential issue may arise if the
-pipeline defines resources or executes job tasks that interact with the proposed
-locations for the signed JWT in the environment. However, if the placement of
-the JWT happens early enough in the lifecycle, this can be mitigated as the
-environment variable would simply be overwritten by the user config. A file
-location would present a harder collision, but there should be reserved paths
-for Concourse artifacts, potentially even mounted to the container as a
-read-only filesystem.
-
-Since we are proposing that the JWT be used externally with products such as
-Hashicorp Vault, the JWT would do nothing unless configured to be trusted by the
-external system. Thus, the impact to existing pipelines would be minimal.
