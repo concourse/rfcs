@@ -18,7 +18,7 @@ Lot's if other services already implement something like this. One well knwon ex
 ## Usage with AWS
 For example a Pipeline could use AWS's [AssumeRoleWithWebIdentity API-Call](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html) to authenticate with AWS using it's concourse-token and do stuff in AWS. It is even [diretly supported by the AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/sts/assume-role-with-web-identity.html)
 
-1. Create an OIDC-Identity-Provider in the AWS Account for your Concourse Server
+1. Create an OIDC-Identity-Provider for your Concourse Server in the AWS Account you would like to use. Like [this](img/AWS-IDP.png).
 2. Create an AWS.IAM-Role with the required deployment-permissions and the following trust policy:
 ```
 {
@@ -49,6 +49,25 @@ This trust-policy allows everyone to assume this role via the AssumeRoleWithWebI
 And conveniently Concourse will create exactly such a token and supply it to (and only to) the pipeline "deploy-to-aws" in the "main" team.
 
 When code inside a pipeline performs the AssumeRoleWithWebIdentity API-Call, AWS will check the provided token for expiry, query concourse to obtain the correct signature-verification key and use it to check the JWT's signature. It will then compare the aud-claim of the token with the one specified in the Role's trust policy. If everything checks out, AWS will return temporary AWS-Credentials that the pipeline can then use to perfor actions in AWS.
+
+In a concourse pipeline all of this could then look like this:
+```
+- task: get-image-tag
+  image: base-image
+  config:
+    platform: linux
+    run:
+    path: bash
+    dir: idp-servicebroker
+    args:
+    - -ceux
+    - aws sts assume-role-with-web-identity --d
+      --provider-id "<ARN of the Identity Provider of Step 1>" \
+      --role-arn "<ARN of the role to be assumed>" \
+      --web-identity-token (( idtoken ))
+    - // do stuff with the new AWS-Permissions
+```
+
 
 ## Usage with vault
 The feature would also allow pipelines to authenticate with vault. This way a pipeline could directly access vault and use all of it's features, not only the limited stuff that is provided by concourse natively.
