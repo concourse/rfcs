@@ -3,7 +3,7 @@
 # Summary
 
 Pipelines should receive signed JWTs ([RFC7519](https://datatracker.ietf.org/doc/html/rfc7519)) from Concourse that contain information about them (team, pipeline-name etc.).
-They could the send this JWTs to outside services to authenticate using their identity as "Concourse-Pipeline X"
+They could then send this JWTs to outside services to authenticate using their identity as "Concourse-Pipeline X"
 
 
 # Motivation
@@ -13,10 +13,10 @@ As of now you would need to create static credentials for these outside services
 However having static (long lived) credentials for something that is critical (like a prod account on AWS) is not state of the art for authentication.
 It would be much better if code running in a pipeline could somehow prove it's identity to the outside service. The outside service could then be configured to grant permissions to a specific pipeline.
 
-Lot's if other services already implement something like this. One well knwon example of this are [Kubernetes's Service Accounts](https://kubernetes.io/docs/concepts/security/service-accounts/#authenticating-credentials). Kubernetes mounts a signed JWT into the pod and the pod can then use this token to authenticate with Kubernetes itself or with any other service that has a trust-relationship.
+Lots if other services already implement something like this. One well known example of this are [Kubernetes's Service Accounts](https://kubernetes.io/docs/concepts/security/service-accounts/#authenticating-credentials). Kubernetes mounts a signed JWT into the pod and the pod can then use this token to authenticate with Kubernetes itself or with any other service that has a trust-relationship.
 
 ## Usage with AWS
-For example a Pipeline could use AWS's [AssumeRoleWithWebIdentity API-Call](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html) to authenticate with AWS using it's concourse-token and do stuff in AWS. It is even [diretly supported by the AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/sts/assume-role-with-web-identity.html)
+For example a Pipeline could use AWS's [AssumeRoleWithWebIdentity API-Call](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html) to authenticate with AWS using it's concourse-token and do stuff in AWS. It is even [directly supported by the AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/sts/assume-role-with-web-identity.html)
 
 1. Create an OIDC-Identity-Provider for your Concourse Server in the AWS Account you would like to use. Like [this](img/AWS-IDP.png).
 2. Create an AWS.IAM-Role with the required deployment-permissions and the following trust policy:
@@ -48,7 +48,7 @@ This trust-policy allows everyone to assume this role via the AssumeRoleWithWebI
 
 And conveniently Concourse will create exactly such a token and supply it to (and only to) the pipeline "deploy-to-aws" in the "main" team.
 
-When code inside a pipeline performs the AssumeRoleWithWebIdentity API-Call, AWS will check the provided token for expiry, query concourse to obtain the correct signature-verification key and use it to check the JWT's signature. It will then compare the aud-claim of the token with the one specified in the Role's trust policy. If everything checks out, AWS will return temporary AWS-Credentials that the pipeline can then use to perfor actions in AWS.
+When code inside a pipeline performs the AssumeRoleWithWebIdentity API-Call, AWS will check the provided token for expiry, query concourse to obtain the correct signature-verification key and use it to check the JWT's signature. It will then compare the aud-claim of the token with the one specified in the Role's trust policy. If everything checks out, AWS will return temporary AWS-Credentials that the pipeline can then use to perform actions in AWS.
 
 In a concourse pipeline all of this could then look like this:
 ```
@@ -78,10 +78,10 @@ It works similarly to AWS. You tell vault an URL to the Issuer of the JWT (your 
 Detailed usage-instructions for vault can follow if required.
 
 # Proposal
-Implementation is split into different phases, that stack onto each other. We could implement the first few and expant the implementation step by step.
+Implementation is split into different phases, that stack onto each other. We could implement the first few and expand the implementation step by step.
 
 ## Phase 1
-- When Concourse boots for the first time it creates a signature keypar and stores it into the DB
+- When Concourse boots for the first time it creates a signature keypair and stores it into the DB
 - Concourse exposes the public part of the key as a JWKS ([RFC 7517](https://datatracker.ietf.org/doc/html/rfc7517)) under a publicly accessible path (for example: https://myconcourse.example.com/keys)
 - Concourse offers a minimal OIDC Discovery Endpoint ([RFC8418](https://datatracker.ietf.org/doc/html/rfc8414)) that basically just points to the JWKS-URL
 - Whenever a job/task/whatever of a pipeline is sent to a worker for execution, Concourse (preferably ATC) will generate a JWT with the following content
