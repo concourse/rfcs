@@ -64,7 +64,7 @@ In a concourse pipeline all of this could then look like this:
     - aws sts assume-role-with-web-identity --d
       --provider-id "<ARN of the Identity Provider of Step 1>" \
       --role-arn "<ARN of the role to be assumed>" \
-      --web-identity-token (( idtoken ))
+      --web-identity-token (( idtoken:token ))
     - // do stuff with the new AWS-Permissions
 ```
 
@@ -84,14 +84,14 @@ Implementation is split into different phases, that stack onto each other. We co
 - When Concourse boots for the first time it creates a signature keypair and stores it into the DB
 - Concourse exposes the public part of the key as a JWKS ([RFC 7517](https://datatracker.ietf.org/doc/html/rfc7517)) under a publicly accessible path (for example: https://myconcourse.example.com/keys)
 - Concourse offers a minimal OIDC Discovery Endpoint ([RFC8418](https://datatracker.ietf.org/doc/html/rfc8414)) that basically just points to the JWKS-URL
-- Whenever a job/task/whatever of a pipeline is sent to a worker for execution, Concourse (preferably ATC) will generate a JWT with the following content
+- There is a built-in var source that pipelines can use to get a signed JWT with the following contents:
 ```
 {
     "iss": "https://myconcourse.example.com",
     "exp": "expiration-time",
     "iat": "time-when-token-was-issued",
     "jti": "nonce",
-    "aud": ["to-be-discussed],
+    "aud": [<configurable via var-source-config>],
     "sub": "team/pipeline-name",
     "team": "team-name",
     "pipeline": "pipeline-name",
@@ -99,31 +99,53 @@ Implementation is split into different phases, that stack onto each other. We co
 }
 ```
 - That JWT is signed with the signature key created in the beginning
-- The signed token is made available to the pipeline
-    - The easiest option would be to have some kind of "internal" var source. This way the generated JWT could simply be accessed via something like ```(( idtoken ))```
-- The jobs/tasks of the pipeline use the token to do whatever they like
+- The jobs/tasks of the pipeline use the token to do whatever they like with it
+
+In the pipeline it would then look like this:
+
+```
+var_sources:
+- name: idtoken
+  type: idtoken
+  config:
+    // the aud claim says what this token is intended for. It must therefore be configurable.
+    aud: ["sts.amazonaws.com"]
+    ttl: 1h
+
+jobs:
+- name: print-creds
+  plan:
+  - task: print
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: {repository: ubuntu}
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          echo token: ((idtoken:token))
+          // Send this token as part of an API-Request to an external service
+```
 
 ## Phase 2
 Concourse could periodically rotate the signing key it uses. The new key will then also be published in the JWKS. The previous key MUST also remain published for some time, in case there are still unexpired tokens out there that were signed with it.
 
 ## Phase 3
 To make sure tokens are as short-lived as possible we could enable online-verification of tokens. Concourse could offer a Token-Introspection-Endpoint ([RFC7662](https://datatracker.ietf.org/doc/html/rfc7662)) where external services can send tokens to for verification.
-That endpoint could reject any token that was created for a job that is already finished. This way tokens are automatically revoked whenever the job they were created for terminates-
-
-## Phase 4
-If a job runs very long, it could happen that it's JWT expires before the job is done. As the token is passed via a var-source there is no way to supply a new token while the job is running.
-Concourse could mitigate this by mounting the token as a file inside the job's container and periodically refreshing that file.
-This way the code running in the job would always have access to a valid token.
-
+That endpoint could reject any token for a pipeline which is currently not running at all.
 
 # Open Questions
 
-1. What kind of keypair is used? RSA-Keys with 4096 bits?
-2. What to put into the aud-claim? Would probably be the best to make it configurable by Concourse-Admins
-3. What exactly to put into the sub-claim? The easiest would be "team/pipeline". But what about the job-name or instance-vars? Maybe this could be configurable as a template?
-4. How long should the generated token be valid? Maybe an hour?
-5. How often to rotate the signing key?
-6. Can and should we include more specific information into the token (job-name/id, task, infos about the worker)?
+1. How to call the var_source. "idtoken"?
+2. How to call the "field" for the token in the var_source. "token"?
+3. What kind of keypair is used by default? RSA-Keys with 4096 bits? We could generate multiple types of keypairs and allow pipelines to choose one via the var-source-config.
+4. What exactly to put into the sub-claim? The easiest would be "team/pipeline". But what about the job-name or instance-vars? Unfortunately instance-vars and job-names are currently not available to var-sources.
+5. How long should the default ttl be?
+6. How often to rotate the signing key?
+7. Can and should we include more specific information into the token (job-name/id, task, infos about the worker)?
 
 
 # New Implications
