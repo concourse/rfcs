@@ -81,10 +81,10 @@ Detailed usage-instructions for vault can follow if required.
 Implementation is split into different phases, that stack onto each other. We could implement the first few and expand the implementation step by step.
 
 ## Phase 1
-- When Concourse boots for the first time it creates a signature keypair and stores it into the DB
+- When Concourse boots for the first time it creates a signature keypair and stores it into the DB. For now we generate a 4096 bit RSA-Key so we can use the RS256 signing method for the tokens. This seems to be the signing method with most support and is used by others for similar purposes ( https://token.actions.githubusercontent.com/.well-known/jwks , https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/ ). Other key types like EC256 can be added later and would be choosable via the var-source.
 - Concourse exposes the public part of the key as a JWKS ([RFC 7517](https://datatracker.ietf.org/doc/html/rfc7517)) under a publicly accessible path (for example: https://myconcourse.example.com/keys)
 - Concourse offers a minimal OIDC Discovery Endpoint ([RFC8418](https://datatracker.ietf.org/doc/html/rfc8414)) that basically just points to the JWKS-URL
-- There is a built-in var source that pipelines can use to get a signed JWT with the following contents:
+- There is a built-in var source (named idtoken) that pipelines can use to get a signed JWT with the following contents:
 ```
 {
     "iss": "https://myconcourse.example.com",
@@ -100,6 +100,12 @@ Implementation is split into different phases, that stack onto each other. We co
 ```
 - That JWT is signed with the signature key created in the beginning
 - The jobs/tasks of the pipeline use the token to do whatever they like with it
+- The variable of the idtoken var-source that contains the token is called "token". All other variables are reserved for future use.
+- By default tokens have a TTL of 1h (as this should be long enough to be valid over the whole run-time of a usual pipeline). The TTL for the token can be adjusted via the var-source.
+- The sub-claim's value is of form ```<team>/<pipeline>```
+- Tokens can have an optional aud-claim that is configurable via the var-source.
+- Tokens do NOT contain worker-specific information
+- If implementable with reasonable effort: The token should contain the job and task name (and change the sub-claim to ```<team>/<pipeline>/<job>/<task>```).
 
 In the pipeline it would then look like this:
 
@@ -131,22 +137,13 @@ jobs:
 ```
 
 ## Phase 2
-Concourse could periodically rotate the signing key it uses. The new key will then also be published in the JWKS. The previous key MUST also remain published for some time, in case there are still unexpired tokens out there that were signed with it.
+Concourse could periodically rotate the signing key it uses. Default rotation-period will be 7 days. The new key will then also be published in the JWKS and be used for future tokens. The previous key MUST also remain published for some time (24h), in case there are still unexpired tokens out there that were signed with it.
+
+The rotation-period should be configurable as an atc-setting. Setting the period to 0 effectively disables automatic key-rotation.
 
 ## Phase 3
 To make sure tokens are as short-lived as possible we could enable online-verification of tokens. Concourse could offer a Token-Introspection-Endpoint ([RFC7662](https://datatracker.ietf.org/doc/html/rfc7662)) where external services can send tokens to for verification.
 That endpoint could reject any token for a pipeline which is currently not running at all.
-
-# Open Questions
-
-1. How to call the var_source. "idtoken"?
-2. How to call the "field" for the token in the var_source. "token"?
-3. What kind of keypair is used by default? RSA-Keys with 4096 bits? We could generate multiple types of keypairs and allow pipelines to choose one via the var-source-config.
-4. What exactly to put into the sub-claim? The easiest would be "team/pipeline". But what about the job-name or instance-vars? Unfortunately instance-vars and job-names are currently not available to var-sources.
-5. How long should the default ttl be?
-6. How often to rotate the signing key?
-7. Can and should we include more specific information into the token (job-name/id, task, infos about the worker)?
-
 
 # New Implications
 
