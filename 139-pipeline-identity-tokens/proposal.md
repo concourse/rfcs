@@ -145,6 +145,10 @@ The rotation-period should be configurable as an atc-setting. Setting the period
 To make sure tokens are as short-lived as possible we could enable online-verification of tokens. Concourse could offer a Token-Introspection-Endpoint ([RFC7662](https://datatracker.ietf.org/doc/html/rfc7662)) where external services can send tokens to for verification.
 That endpoint could reject any token for a pipeline which is currently not running at all.
 
+# Open Questions
+(1-7) have already been answered
+8. How do pipeline identity tokens work with resources?
+
 # New Implications
 
 This could fundamentally change the way how pipelines interact with external services making it much more secure.
