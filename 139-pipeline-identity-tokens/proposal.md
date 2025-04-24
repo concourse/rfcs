@@ -99,24 +99,38 @@ Implementation is split into different phases, that stack onto each other. We co
 }
 ```
 - That JWT is signed with the signature key created in the beginning
-- The jobs/tasks of the pipeline use the token to do whatever they like with it
-- The variable of the idtoken var-source that contains the token is called "token". All other variables are reserved for future use.
-- By default tokens have a TTL of 1h (as this should be long enough to be valid over the whole run-time of a usual pipeline). The TTL for the token can be adjusted via the var-source.
-- The sub-claim's value is of form ```<team>/<pipeline>```
-- Tokens can have an optional aud-claim that is configurable via the var-source.
+- The jobs/steps of the pipeline use the token to do whatever they like with it
+- The sub-claim's value is by default of form ```<team>/<pipeline>``` (but can be configured, see below)
+- Tokens can have an optional aud-claim that is configurable via the var-source (see below)
 - Tokens do NOT contain worker-specific information
-- If implementable with reasonable effort: The token should contain the job and task name (and change the sub-claim to ```<team>/<pipeline>/<job>/<task>```).
+- If implementable with reasonable effort: The token should contain the job and task/step name
 
-In the pipeline it would then look like this:
+### The IDToken Var-Source
+The var-source of type "idtoken" can be used to obtain the tokens described above. It offers a few config-fields to configure the token that is received:
+
+- ```subject_scope``` string, possible_values="team"|"pipeline"|"job"|"step", default="pipeline"  
+Specifies what should be included in the sub-claim of the token. team->```<team>```, pipeline->```<team>/<pipeline>```, job->```<team>/<pipeline>/<job>```, step->```<team>/<pipeline>/<job>/<step>```
+
+- ```audience``` []string, default=nil  
+The aud-claim to include in the token. Nil means no aud-claim is present at all.
+
+- ```expires_in``` time.Duration, default=1h, max=24h  
+How long the generated token should be valid. (exp-claim = now()+expires_in)
+
+The (output) variable of the var-source that contains the token is called "token". All other variables are reserved for future use.
+
+In the future it would be possible to add a ```signature_algorithm``` config field that alows the user to choose between RS256 and EC256 as signature-alogrithms for his token. (Concourse would need to have one key for each supported algorithm stored).
+
+In the pipeline it would then look like this (all config fields are optional and are shown here just for clarity):
 
 ```
 var_sources:
 - name: idtoken
   type: idtoken
   config:
-    // the aud claim says what this token is intended for. It must therefore be configurable.
-    aud: ["sts.amazonaws.com"]
-    ttl: 1h
+    subject_scope: pipeline
+    audience: ["sts.amazonaws.com"]
+    expires_in: 1h
 
 jobs:
 - name: print-creds
