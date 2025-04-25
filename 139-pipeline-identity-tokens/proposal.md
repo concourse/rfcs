@@ -112,10 +112,10 @@ The var-source of type "idtoken" can be used to obtain the tokens described abov
 
 - `subject_scope` string - Specifies what should be included in the sub-claim of the token. The var-source MUST make sure that no component of the sub-claim contains any forward-slashes (`/`) and should escape all slashes by URL-Encoding them.
   - with a value of one of:
-    - `team`: `<team>`
-    - `pipeline`: `<team>/<pipeline>`
-    - `job`: `<team>/<pipeline>/<job>`
-    - `step`: `<team>/<pipeline>/<job>/<step_name>`
+    - `team` which results in a `sub` claim of `<team>`
+    - `pipeline` which results in a `sub` claim of `<team>/<pipeline>`
+    - `job` which results in a `sub` claim of `<team>/<pipeline>/<job>`
+    - `step` which results in a `sub` claim of `<team>/<pipeline>/<job>/<step_name>`
   - default: `pipeline`
 
 - `audience` []string - The aud-claims to include in the token.
