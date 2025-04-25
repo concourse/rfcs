@@ -22,7 +22,7 @@ For example a Pipeline could use AWS's [AssumeRoleWithWebIdentity API-Call](http
 
 1. Create an OIDC-Identity-Provider for your Concourse Server in the AWS Account you would like to use. Like [this](img/AWS-IDP.png).
 2. Create an AWS.IAM-Role with the required deployment-permissions and the following trust policy:
-```
+```json
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -53,7 +53,7 @@ And conveniently Concourse will create exactly such a token and supply it to (an
 When code inside a pipeline performs the AssumeRoleWithWebIdentity API-Call, AWS will check the provided token for expiry, query concourse to obtain the correct signature-verification key and use it to check the JWT's signature. It will then compare the aud and sub claims of the token with the ones specified in the Role's trust policy. If everything checks out, AWS will return temporary AWS-Credentials that the pipeline can then use to perform actions in AWS.
 
 In a concourse pipeline all of this could then look like this:
-```
+```yaml
 - task: get-image-tag
   image: base-image
   config:
@@ -75,7 +75,7 @@ In a concourse pipeline all of this could then look like this:
 The feature would also allow pipelines to authenticate with vault. This way a pipeline could directly access vault and use all of it's features and not only the limited stuff that is concourse provides natively.
 
 Vault has support for [authentication via JWT](https://developer.hashicorp.com/vault/docs/auth/jwt).
-It works similarly to AWS. You tell Vault an URL to the Issuer of the JWT (your concourse instance) and configure what values you expect in the token (for example the token must be issued to a pipeline of the main team). You can then configure a Vault-ACL and even use claims from the token in the ACL. Your ACL could for example allow access to secrets stored in ```/concourse/<team>/<pipeline>``` to any holder of such a JWT issued by your concourse.
+It works similarly to AWS. You tell Vault an URL to the Issuer of the JWT (your concourse instance) and configure what values you expect in the token (for example the token must be issued to a pipeline of the main team). You can then configure a Vault-ACL and even use claims from the token in the ACL. Your ACL could for example allow access to secrets stored in `/concourse/<team>/<pipeline>` to any holder of such a JWT issued by your concourse.
 
 Detailed usage-instructions for vault can follow if required.
 
@@ -87,7 +87,7 @@ Implementation is split into different phases that stack onto each other. We cou
 - Concourse exposes the public part of the key as a JWKS ([RFC 7517](https://datatracker.ietf.org/doc/html/rfc7517)) under a publicly accessible path (for example: https://myconcourse.example.com/keys)
 - Concourse offers a minimal OIDC Discovery Endpoint ([RFC8418](https://datatracker.ietf.org/doc/html/rfc8414)) that basically just points to the JWKS-URL
 - There is a built-in var source (see section below) that pipelines can use to get a signed JWT with the following contents:
-```
+```json
 {
     "iss": "https://myconcourse.example.com",
     "exp": "expiration-time",
@@ -102,7 +102,7 @@ Implementation is split into different phases that stack onto each other. We cou
 ```
 - That JWT is signed with the signature key created in the beginning
 - The jobs/steps of the pipeline use the token to do whatever they like with it
-- The sub-claim's value is by default of form ```<team>/<pipeline>``` (but can be configured, see below)
+- The sub-claim's value is by default of form `<team>/<pipeline>` (but can be configured, see below)
 - Tokens can have an optional aud-claim that is configurable via the var-source (see below)
 - Tokens do NOT contain worker-specific information
 - If implementable with reasonable effort: The token should contain the job and task/step name
@@ -110,22 +110,28 @@ Implementation is split into different phases that stack onto each other. We cou
 ### The IDToken Var-Source
 The var-source of type "idtoken" can be used to obtain the tokens described above. It offers a few config-fields to configure the token that is received:
 
-- ```subject_scope``` string, possible_values="team"|"pipeline"|"job"|"step", default="pipeline"  
-Specifies what should be included in the sub-claim of the token. team->```<team>```, pipeline->```<team>/<pipeline>```, job->```<team>/<pipeline>/<job>```, step->```<team>/<pipeline>/<job>/<step>```. The var-source MUST make sure that no component of the sub-claim contains any ```/``` (by escaping all slashes for example using URL-Encoding).
+- `subject_scope` string - Specifies what should be included in the sub-claim of the token. The var-source MUST make sure that no component of the sub-claim contains any forward-slashes (`/`) and should escape all slashes by URL-Encoding them.
+  - with a value of one of:
+    - `team`: `<team>`
+    - `pipeline`: `<team>/<pipeline>`
+    - `job`: `<team>/<pipeline>/<job>`
+    - `step`: `<team>/<pipeline>/<job>/<step_name>`
+  - default: `pipeline`
 
-- ```audience``` []string, default=nil  
-The aud-claim to include in the token. Nil means no aud-claim is present at all.
+- `audience` []string - The aud-claims to include in the token.
+  - default: Empty array
 
-- ```expires_in``` time.Duration, default=1h, max=24h  
-How long the generated token should be valid. (exp-claim=now()+expires_in)
+- `expires_in` `time.Duration` - How long the generated token should be valid.
+  - default: `1h`
+  - Max value accept is `24h`
 
-The (output) variable of the var-source that contains the token is called ```token```. All other variables are reserved for future use.
+The output variable of the var-source that contains the token is called `token`. All other variables are reserved for future use.
 
-In the future it would be possible to add a ```signature_algorithm``` config field that allows the user to choose between RS256 and ES256 as signature-algorithms for his token. (Concourse would need to have one key for each supported algorithm stored).
+In the future it would be possible to add a `signature_algorithm` config field that allows the user to choose between RS256 and ES256 as signature-algorithms for his token. (Concourse would need to have one key for each supported algorithm stored).
 
-In the pipeline it would then look like this (all config fields are optional and are shown here just for clarity):
+In the pipeline it would then look like this (all config fields are optional and are shown here for clarity):
 
-```
+```yaml
 var_sources:
 - name: idtoken
   type: idtoken
@@ -143,12 +149,16 @@ jobs:
       image_resource:
         type: registry-image
         source: {repository: ubuntu}
+      params:
+        ID_TOKEN: ((idtoken:token))
       run:
         path: bash
         args:
         - -c
         - |
-          echo token: ((idtoken:token))
+          echo "token: $ID_TOKEN"
+          // or
+          echo "token: ((idtoken:token))"
           // Send this token as part of an API-Request to an external service
 ```
 
@@ -163,6 +173,7 @@ That endpoint could reject any token that was issued for a pipeline/job/task tha
 
 # Open Questions
 (1-7) have already been answered
+
 8. How do pipeline identity tokens work with resources?
 
 # New Implications
