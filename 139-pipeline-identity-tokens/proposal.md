@@ -106,7 +106,7 @@ Implementation is split into different phases that stack onto each other. We cou
 - The sub-claim's value is by default of form `<team>/<pipeline>` (but can be configured, see below)
 - Tokens can have an optional aud-claim that is configurable via the var-source (see below)
 - Tokens do NOT contain worker-specific information
-- If implementable with reasonable effort: The token should contain the job and task/step name
+- If implementable with reasonable effort: The token should contain the job and step name
 
 ### The IDToken Var-Source
 The var-source of type "idtoken" can be used to obtain the tokens described above. It offers a few config-fields to configure the token that is received:
