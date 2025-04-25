@@ -87,19 +87,20 @@ Implementation is split into different phases that stack onto each other. We cou
 - Concourse exposes the public part of the key as a JWKS ([RFC 7517](https://datatracker.ietf.org/doc/html/rfc7517)) under a publicly accessible path (for example: https://myconcourse.example.com/keys)
 - Concourse offers a minimal OIDC Discovery Endpoint ([RFC8418](https://datatracker.ietf.org/doc/html/rfc8414)) that basically just points to the JWKS-URL
 - There is a built-in var source (see section below) that pipelines can use to get a signed JWT with the following contents:
-```json
-{
-    "iss": "https://myconcourse.example.com",
-    "exp": "expiration-time",
-    "iat": "time-when-token-was-issued",
-    "jti": "nonce",
-    "aud": [<configurable via var-source-config>],
-    "sub": "team/pipeline-name",
-    "team": "team-name",
-    "pipeline": "pipeline-name",
-    ...<whatever else might be relevant>...
-}
-```
+    ```json
+    {
+        "iss": "https://myconcourse.example.com",
+        "exp": "expiration-time",
+        "iat": "time-when-token-was-issued",
+        "jti": "nonce",
+        "aud": ["<configurable via var-source-config>"],
+        "sub": "team/pipeline-name",
+        "team": "team-name",
+        "pipeline": "pipeline-name",
+        "job": "job-name",
+        "step": "step-name"
+    }
+    ```
 - That JWT is signed with the signature key created in the beginning
 - The jobs/steps of the pipeline use the token to do whatever they like with it
 - The sub-claim's value is by default of form `<team>/<pipeline>` (but can be configured, see below)
