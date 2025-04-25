@@ -124,7 +124,7 @@ The var-source of type "idtoken" can be used to obtain the tokens described abov
 
 - `expires_in` `time.Duration` - How long the generated token should be valid.
   - default: `1h`
-  - Max value accept is `24h`
+  - Max value accepted is `24h`
 
 The output variable of the var-source that contains the token is called `token`. All other variables are reserved for future use.
 
