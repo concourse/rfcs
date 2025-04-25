@@ -173,9 +173,40 @@ To make sure tokens are as short-lived as possible we could enable online-verifi
 That endpoint could reject any token that was issued for a pipeline/job/task that has already finished running.
 
 # Open Questions
-(1-7) have already been answered
 
-8. How do pipeline identity tokens work with resources?
+# Answered Questions
+
+> 1. How to call the var_source. "idtoken"?
+
+We're calling it `idtoken`.
+
+> 2. How to call the "field" for the token in the var_source. "token"?
+
+We're calling it `token`.
+
+> 3. What kind of keypair is used by default? RSA-Keys with 4096 bits? We could generate multiple types of keypairs and allow pipelines to choose one via the var-source-config.
+
+We've settled on generating RSA256 keys for the first implementation. Future implementations may add other types of keypairs like ES256.
+
+> 4. What exactly to put into the sub-claim? The easiest would be "team/pipeline". But what about the job-name or instance-vars? Unfortunately instance-vars and job-names are currently not available to var-sources.
+
+We've decided to provide a set list of values that users can choose from: `team`, `pipeline`, `job`, and `step`. These result in predetermined strings being set as the value of the `sub` claim. See above for details.
+
+> 5. How long should the default ttl be?
+
+We've settled on 1hr as it seems to be a common default and should be good enough to cover most use-cases.
+
+> 6. How often to rotate the signing key?
+
+We've settled on rotating the key, by default, every 7 days. The key will remain in the JWKS for 24hrs after it expires so any keys generated right before aren't immediately invalid. This will be configurable and users can set the rotation to zero days which will completely disable rotation.
+
+> 7. Can and should we include more specific information into the token (job-name/id, task, infos about the worker)?
+
+We want to provide job and step names, if possible. No info about the workers will be included in the JWT.
+
+> 8. How do pipeline identity tokens work with resources?
+
+It's not clear how well this will work with resources since a constantly rotating token will make version history for a resource be constantly reset. This may motivate us to provide some way to avoid that, but that should be investigated separately from this RFC.
 
 # New Implications
 
