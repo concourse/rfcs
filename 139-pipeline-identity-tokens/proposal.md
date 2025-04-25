@@ -120,7 +120,7 @@ The var-source of type "idtoken" can be used to obtain the tokens described abov
   - default: `pipeline`
 
 - `audience` []string - The aud-claims to include in the token.
-  - default: Empty array
+  - default: `nil`
 
 - `expires_in` `time.Duration` - How long the generated token should be valid.
   - default: `1h`
