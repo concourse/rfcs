@@ -59,15 +59,15 @@ In a concourse pipeline all of this could then look like this:
   config:
     platform: linux
     run:
-    path: bash
-    dir: idp-servicebroker
-    args:
-    - -ceux
-    - aws sts assume-role-with-web-identity --d
-      --provider-id "<ARN of the Identity Provider of Step 1>" \
-      --role-arn "<ARN of the role to be assumed>" \
-      --web-identity-token (( idtoken:token ))
-    - // do stuff with the new AWS-Permissions
+      path: bash
+      dir: idp-servicebroker
+      args:
+      - -ceux
+      - aws sts assume-role-with-web-identity --d
+        --provider-id "<ARN of the Identity Provider of Step 1>" \
+        --role-arn "<ARN of the role to be assumed>" \
+        --web-identity-token ((idtoken:token))
+      - // do stuff with the new AWS-Permissions
 ```
 
 
