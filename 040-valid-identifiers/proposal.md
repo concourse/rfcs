@@ -90,7 +90,7 @@ With Go's [`re2`](https://github.com/google/re2/wiki/Syntax) syntax, a valid
 identifier would be matched by the following regular expression:
 
 ```re
-^[\p{Ll}\p{Lt}\p{Lm}\p{Lo}][\p{Ll}\p{Lt}\p{Lm}\p{Lo}\d\-.]*$
+^[\p{Ll}\p{Lt}\p{Lm}\p{Lo}\d][\p{Ll}\p{Lt}\p{Lm}\p{Lo}\d\-_.]*$
 ```
 
 ## Renaming existing data
@@ -184,3 +184,9 @@ identifiers.
 [underscores-issue]: https://github.com/concourse/concourse/issues/6070
 [jobs-old-name]: https://concourse-ci.org/jobs.html#schema.job.old_name
 [resources-old-name]: https://concourse-ci.org/resources.html#schema.resource.old_name
+
+## Pull Request [#9119](https://github.com/concourse/concourse/pull/9119)
+
+Pull request [#9119](https://github.com/concourse/concourse/pull/9119) modified
+the identifier regex to allow identifiers to start with numbers, but still
+restrict an identifier from being only numbers.
