@@ -40,11 +40,20 @@ Booklit:
 
 1. How do we generate the home page to download the Fly CLI and Concourse CLI?
     - Material for MkDocs has a custom home page, will probably just take a little engineering work
-2. Are we concerned about breaking peoples bookmarks?
 
 # Answered Questions
 
-To be filled...
+1. Are we concerned about breaking peoples bookmarks?
+   1. Yes since we're concerned about existing links in issues, comments, etc.
+   2. Done by setting up redirect maps like the following:
+      ```yaml
+      docs.html.md: docs/index.md
+      fly.html.md: docs/fly.md
+      fly.md: docs/fly.md
+      ``` 
+   3. Both html.md and .md need to be specified since concourse docs can either be at:
+      1. https://concourse-ci.org/task-inputs-outputs-example.html or,
+      2. https://concourse-ci.org/task-inputs-outputs-example
 
 # New Implications
 
